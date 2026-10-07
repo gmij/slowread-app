@@ -8,3 +8,5 @@ test('search, source retrieval and chapter parsing',async()=>{
  const nativeFetch=globalThis.fetch;let calls=0;
  try{globalThis.fetch=async url=>{calls++;assert.equal(url,'https://www.gutenberg.org/cache/epub/1342/pg1342.txt');return new Response(raw)};const b=await loadBook('gutenberg-1342');assert.equal(b.chapters.length,2);await loadBook('gutenberg-1342');assert.equal(calls,1);await assert.rejects(()=>loadBook('https://internal/'));globalThis.fetch=async()=>new Response('',{status:403});assert.match((await searchBooks('unknown-query')).warning,/暂时不可用/);}finally{globalThis.fetch=nativeFetch;}
 });
+
+test('Chinese chapter titles include circle-zero numerals and exclude source credits',()=>{const raw='Project Gutenberg\n*** START OF THE PROJECT GUTENBERG EBOOK TEST ***\nProduced by Someone\n第一回　开篇\n'+('山中有一石猴。'.repeat(70))+'\n第一○回　故事继续\n'+('师徒一路西行。'.repeat(70));const chapters=splitChapters(raw);assert.equal(chapters.length,2);assert.match(chapters[1].title,/第一○回/);assert.ok(!chapters[0].paragraphs[0].text.includes('Produced'));});

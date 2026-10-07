@@ -23,7 +23,7 @@ export async function saveShared(book,chapter,target,rows,env){
  if(!Array.isArray(rows)||rows.length!==chapter.paragraphs.length)throw new Error('本章尚未翻译完整，暂不提交。');
  for(let i=0;i<rows.length;i++){const row=rows[i];if(row.index!==i||typeof row.text!=='string'||row.text.length>24000||!row.text.trim()||!/^[a-f0-9]{64}$/.test(row.signature||''))throw new Error('译文提交校验失败。');const signature=Uint8Array.from(row.signature.match(/../g),h=>parseInt(h,16));if(!await crypto.subtle.verify('HMAC',key,signature,encoder.encode(receiptPayload(book,chapter,target,hash,i,row.text))))throw new Error('译文提交校验失败。');}
  const existing=await readShared(book,chapter,target,env);if(existing)return existing;
- const result={bookId:book.id,id:chapter.id,title:chapter.title,language:target,sourceHash:hash,model:MODEL,source:book.source,paragraphs:chapter.paragraphs.map((p,i)=>({id:p.id,en:p.text,zh:rows[i].text})),createdAt:new Date().toISOString()};
+ const result={bookId:book.id,id:chapter.id,title:chapter.title,language:target,sourceLanguage:book.sourceLanguage||'en',sourceHash:hash,model:MODEL,source:book.source,paragraphs:chapter.paragraphs.map((p,i)=>({id:p.id,en:p.text,zh:rows[i].text})),createdAt:new Date().toISOString()};
  // Immutable source-version files avoid overwriting another reader's completed chapter.
  const originalFile=`books/${book.id}/chapters/${chapter.id}-${hash}.json`;
  const originalResult=await github(env,originalFile,{method:'PUT',body:JSON.stringify({message:`Import ${book.id} chapter ${chapter.id}`,branch:env.CONTENT_REF||'main',content:encode({bookId:book.id,id:chapter.id,title:chapter.title,sourceHash:hash,source:book.source,paragraphs:chapter.paragraphs})})});

@@ -17,3 +17,5 @@ test('language preference precedence and unsupported browser fallback',()=>{
  assert.equal(resolveLanguage({browserLanguages:['fr-FR','ja-JP']}),'en');
  assert.equal(resolveLanguage({browserLanguages:['fr-FR']}),'en');
 });
+
+test('Chinese original is readable while English is counted as a translation',async()=>{const old=globalThis.fetch;invalidateBookStatus();globalThis.fetch=async()=>Response.json({tree:[]});try{const b={id:'gutenberg-23962',number:23962,sourceLanguage:'zh-CN',sections:[{id:'01',paragraphs:[{id:'p1',text:'中文'}]}]};assert.equal((await bookStatus(b,'zh-CN',{CONTENT_REPO:'example/library'})).percent,100);const en=await bookStatus(b,'en',{CONTENT_REPO:'example/library'});assert.equal(en.original,false);assert.equal(en.percent,0)}finally{globalThis.fetch=old;invalidateBookStatus()}});

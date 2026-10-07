@@ -3,6 +3,7 @@ import original from './sample/original.json';
 import translation from './sample/zh.json';
 import {quote,translateParagraph,languages} from './translator.js';
 import {readShared,saveShared,receipt,sourceHash} from './shared-library.js';
+export {TranslationCoordinator} from './translation-coordinator.js';
 import {bookStatus,invalidateBookStatus} from './book-status.js';
 import {authRoute} from './auth.js';
 import {createBookRequest} from './book-requests.js';
@@ -14,10 +15,11 @@ export default {async fetch(request,env){
  const action=url.pathname.match(/^\/api\/books\/(gutenberg-[1-9]\d{0,6})\/chapters\/(\d{2,4})\/(quote|translate|save)$/);
  if(request.method!=='GET'&&!(request.method==='POST'&&['translate','save'].includes(action?.[3])))return json({error:'Method not allowed'},405);
  try{
-  if(url.pathname==='/api/health')return json({ok:true,mode:'source-import',translationEnabled:env.TRANSLATION_ENABLED==='true'&&!!env.AI&&!!env.GITHUB_CONTENT_TOKEN,sharedWritesEnabled:!!env.GITHUB_CONTENT_TOKEN});
+  if(url.pathname==='/api/translation-status'){if(!env.TRANSLATIONS)return json({available:false,message:'翻译任务服务暂不可用'});return env.TRANSLATIONS.get(env.TRANSLATIONS.idFromName('global-v1')).fetch('https://translation.internal/status');}
+  if(url.pathname==='/api/health')return json({ok:true,mode:'source-import',translationEnabled:env.TRANSLATION_ENABLED==='true'&&!!env.AI&&!!env.GITHUB_CONTENT_TOKEN&&!!env.TRANSLATIONS,sharedWritesEnabled:!!env.GITHUB_CONTENT_TOKEN});
   if(action){
    const book=await loadBook(action[1]);const chapter=book.sections.find(c=>c.id===action[2]);if(!chapter)return json({error:'Chapter not found'},404);
-   const enabled=env.TRANSLATION_ENABLED==='true'&&!!env.AI&&!!env.GITHUB_CONTENT_TOKEN;
+   const enabled=env.TRANSLATION_ENABLED==='true'&&!!env.AI&&!!env.GITHUB_CONTENT_TOKEN&&!!env.TRANSLATIONS;
    if(action[3]==='quote')return json({...quote(chapter.paragraphs,url.searchParams.get('target')||'zh-CN',enabled),sourceHash:await sourceHash(chapter)});
    if(request.method!=='POST')return json({error:'Method not allowed'},405);
    if(!enabled)return json({error:'真实翻译尚未启用。可以先阅读原文。'},503);
@@ -29,7 +31,7 @@ export default {async fetch(request,env){
    if(!Number.isInteger(input.index)||input.index<0||input.index>=chapter.paragraphs.length)return json({error:'段落不存在'},400);
    if(chapter.paragraphs.reduce((n,p)=>n+p.text.length,0)>50000)return json({error:'此章超出试用长度上限，可以阅读原文。'},413);
    const shared=await readShared(book,chapter,input.target,env);
-   const result=shared?{text:shared.paragraphs[input.index].zh,cached:true}:await translateParagraph(chapter.paragraphs[input.index].text,input.target,env.AI);
+   let result;if(shared)result={text:shared.paragraphs[input.index].zh,cached:true};else{const response=await env.TRANSLATIONS.get(env.TRANSLATIONS.idFromName('global-v1')).fetch('https://translation.internal/translate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:chapter.paragraphs[input.index].text,target:input.target,sourceLanguage:book.sourceLanguage||'en'})});if(!response.ok)return response;result=await response.json();}
    return Response.json({index:input.index,id:chapter.paragraphs[input.index].id,...result,...await receipt(book,chapter,input.target,input.index,result.text,env)},{headers:{'Cache-Control':'no-store'}});
   }
   if(url.pathname==='/api/books')return json(await searchBooks((url.searchParams.get('q')||'').trim().slice(0,200)));
@@ -39,9 +41,9 @@ export default {async fetch(request,env){
   const book=await loadBook(m[1]);if(!m[2]){const {sections,...details}=book;return json(details);}
   const c=book.sections.find(c=>c.id===m[2]);if(!c)return json({error:'Chapter not found'},404);
   const target=url.searchParams.get('target')||'zh-CN';if(target!=='en'&&!languages[target])return json({error:'Language not supported'},400);
-  if(target==='en')return json({bookId:book.id,id:c.id,title:c.title,language:'en',paragraphs:c.paragraphs.map(p=>({id:p.id,en:p.text})),source:book.source});
-  const shared=await readShared(book,c,target,env);if(shared)return json(shared);
+  if(target===(book.sourceLanguage||'en'))return json({bookId:book.id,id:c.id,title:c.title,language:book.sourceLanguage||'en',sourceLanguage:book.sourceLanguage||'en',paragraphs:c.paragraphs.map(p=>({id:p.id,en:p.text})),source:book.source});
+  const shared=await readShared(book,c,target,env);if(shared)return json({...shared,sourceLanguage:book.sourceLanguage||'en'});
   if(target==='zh-CN'&&book.number===1342&&c.id==='01')return json({bookId:book.id,id:c.id,title:c.title,language:'zh-CN',paragraphs:original.paragraphs.map((p,i)=>({id:p.id,en:p.text,zh:translation.paragraphs[i].text})),source:book.source});
   return json({bookId:book.id,id:c.id,title:c.title,language:'en',paragraphs:c.paragraphs.map(p=>({id:p.id,en:p.text})),source:book.source});
- }catch(e){return json({error:e.message||'书源暂时不可用，请稍后重试。'},503);}
+ }catch(e){return json({error:['TimeoutError','AbortError'].includes(e.name)?'书源连接超时，请稍后重试。':e.message||'书源暂时不可用，请稍后重试。'},503);}
 }};

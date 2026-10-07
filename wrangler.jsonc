@@ -13,9 +13,26 @@
     "CONTENT_REPO": "gmij/slowread-library",
     "CONTENT_REF": "main",
     "TRANSLATION_ENABLED": "true",
-    "BOOK_REQUESTS_ENABLED": "true"
+    "BOOK_REQUESTS_ENABLED": "true",
+    "TRANSLATION_DAILY_CHARACTERS": "100000"
   },
   "ai": {
     "binding": "AI"
-  }
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "TRANSLATIONS",
+        "class_name": "TranslationCoordinator"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1-translation-coordinator",
+      "new_sqlite_classes": [
+        "TranslationCoordinator"
+      ]
+    }
+  ]
 }
