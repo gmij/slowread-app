@@ -1,11 +1,17 @@
-# Slowread
+# Slowread MVP
 
-Cloudflare Worker and static reader. Deploy using `npm install` and `npm run deploy`.
+Live: https://slowread-app.gmij.workers.dev/
 
-Search four curated classics by Chinese/English title or author. Other English queries use Gutendex's public metadata API; an upstream failure produces an explicit message rather than fake results. Selecting a book retrieves its Gutenberg plain text and automatically splits chapter headings (or reading sections when none are present). Original text is displayed when no translation exists.
+Search book/author → obtain Gutenberg text → detect chapter headings (fallback to reading sections) → quote for selected language → explicitly confirm free chapter translation → read, compare, pause and resume.
 
-The first chapter of Pride and Prejudice has an AI-assisted Chinese reading sample. Its build snapshot in src/sample comes from gmij/slowread-library, which remains the content authoring repository. This snapshot permits the free sample to work without a private GitHub credential. Source originals are obtained on demand, temporarily cached in Worker memory (up to 8 books for ten minutes); this is not durable storage.
+Chinese aliases are available for four curated books. Other English queries use Gutendex with direct Gutenberg search fallback. Sources are only fixed HTTPS Gutenberg origins with numeric book IDs. Search does not imply a matching downloadable or regionally licensed edition. Source metadata must mark US public domain before unfamiliar books are imported.
 
-No realtime translation, payment, user accounts or permanent import pipeline is implemented. Gutendex's public API is for prototyping; production scale requires a maintained metadata index. Sources retain attribution and regional copyright limitations. Source fetches accept only numeric Gutenberg IDs and fixed HTTPS origins.
+Translation uses Cloudflare Workers AI Qwen3-30B-A3B-FP8. A deployment with `TRANSLATION_ENABLED=true` is authorized for the user's **Workers Free plan only**. Free quota exhaustion stops requests; do not upgrade or migrate to Paid without a spending decision. Readers pay US$0 during this MVP. Quotes separately disclose a rough provider-cost estimate based on current input/output token prices; these are estimates, not checkout or measured bills.
 
-Tests: `npm test`. Chapter parser tests cover preface exclusion, paragraph extraction, source URL validation, cache reuse, and upstream failure.
+Only source paragraph text is submitted to AI, never arbitrary client text. Origin and chapter/index validation, chapter/paragraph size limits, bounded source URLs, short-lived in-memory caches, and incomplete-model-output detection constrain the prototype. This is not a hardened multi-tenant paid service; no authentication, payment, or globally durable rate/budget ledger exists.
+
+Source cache: up to eight books, ten minutes per Worker isolate. Translation cache: up to 500 paragraphs, one hour per isolate. Completed and partial translations additionally persist in browser localStorage keyed by source content and model version; they resume without retranslating completed paragraphs. No server-side durable shared translation library is implemented. Share links send location and target language, not another reader's local translations. Clearing browser storage loses translations.
+
+Two repositories remain: app/frontend/Worker here, authored sample originals/translations in `gmij/slowread-library`. The first Pride and Prejudice chapter snapshot in `src/sample` comes from that private content repo. Dynamically imported books and new translations are not committed to GitHub automatically.
+
+Deploy: `npm install`, `npm run deploy`. GitHub main also triggers Cloudflare builds. Local source is E:/Slowread/app, library is E:/Slowread/library. Tests: `npm test`; dry-run `npx wrangler deploy --dry-run`. UI and live model output must be verified separately from unit tests.
