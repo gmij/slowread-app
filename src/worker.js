@@ -1,4 +1,6 @@
 import {originalResponse} from './book-response.js';
+import {bookshelfRoute} from './bookshelf.js';
+export {UserBookshelf} from './bookshelf.js';
 import {searchBooks,loadBook} from './importer.js';
 import original from './sample/original.json';
 import translation from './sample/zh.json';
@@ -11,13 +13,14 @@ import {createBookRequest} from './book-requests.js';
 const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'private, max-age=60'}});
 export default {async fetch(request,env){
  const url=new URL(request.url);if(!url.pathname.startsWith('/api/'))return env.ASSETS.fetch(request);
+ if(url.pathname==='/api/bookshelf'){try{return await bookshelfRoute(request,env)}catch{return Response.json({error:'书架暂时无法同步，请稍后重试'},{status:503,headers:{'Cache-Control':'no-store'}})}}
  if(url.pathname==='/api/requests'){try{return await createBookRequest(request,env)}catch{return Response.json({error:'请求暂时无法提交'},{status:503})}}
  if(url.pathname==='/api/me'||url.pathname.startsWith('/api/auth/')){try{return await authRoute(request,env)}catch{return Response.json({error:'登录服务暂时不可用'},{status:503,headers:{'Cache-Control':'no-store'}})}}
  const action=url.pathname.match(/^\/api\/books\/(gutenberg-[1-9]\d{0,6})\/chapters\/(\d{2,4})\/(quote|translate|save)$/);
  if(request.method!=='GET'&&!(request.method==='POST'&&['translate','save'].includes(action?.[3])))return json({error:'Method not allowed'},405);
  try{
   if(url.pathname==='/api/translation-status'){if(!env.TRANSLATIONS)return json({available:false,message:'翻译任务服务暂不可用'});return env.TRANSLATIONS.get(env.TRANSLATIONS.idFromName('global-v1')).fetch('https://translation.internal/status');}
-  if(url.pathname==='/api/health')return json({ok:true,mode:'source-import',translationEngine:TRANSLATION_ENGINE_VERSION,translationEnabled:env.TRANSLATION_ENABLED==='true'&&!!env.AI&&!!env.GITHUB_CONTENT_TOKEN&&!!env.TRANSLATIONS,sharedWritesEnabled:!!env.GITHUB_CONTENT_TOKEN});
+  if(url.pathname==='/api/health')return json({ok:true,mode:'source-import',bookshelfEnabled:!!env.BOOKSHELVES,translationEngine:TRANSLATION_ENGINE_VERSION,translationEnabled:env.TRANSLATION_ENABLED==='true'&&!!env.AI&&!!env.GITHUB_CONTENT_TOKEN&&!!env.TRANSLATIONS,sharedWritesEnabled:!!env.GITHUB_CONTENT_TOKEN});
   if(action){
    const book=await loadBook(action[1]);const chapter=book.sections.find(c=>c.id===action[2]);if(!chapter)return json({error:'Chapter not found'},404);
    const enabled=env.TRANSLATION_ENABLED==='true'&&!!env.AI&&!!env.GITHUB_CONTENT_TOKEN&&!!env.TRANSLATIONS;
