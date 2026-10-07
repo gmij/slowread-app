@@ -1,5 +1,7 @@
 # Slowread MVP
 
+Architecture and roadmap: [架构设计说明](ARCHITECTURE.md) records the proposed multilingual library, ad-funded chapter access, sharing attribution and referral revenue model, including unresolved cost and settlement decisions.
+
 Live: https://slowread-app.gmij.workers.dev/
 
 Search book/author → obtain Gutenberg text → detect chapter headings (fallback to reading sections) → quote for selected language → explicitly confirm free chapter translation → read, compare, pause and resume.
