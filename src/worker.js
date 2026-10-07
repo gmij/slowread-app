@@ -4,9 +4,11 @@ import translation from './sample/zh.json';
 import {quote,translateParagraph,languages} from './translator.js';
 import {readShared,saveShared,receipt,sourceHash} from './shared-library.js';
 import {bookStatus,invalidateBookStatus} from './book-status.js';
+import {authRoute} from './auth.js';
 const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'private, max-age=60'}});
 export default {async fetch(request,env){
  const url=new URL(request.url);if(!url.pathname.startsWith('/api/'))return env.ASSETS.fetch(request);
+ if(url.pathname==='/api/me'||url.pathname.startsWith('/api/auth/')){try{return await authRoute(request,env)}catch{return Response.json({error:'登录服务暂时不可用'},{status:503,headers:{'Cache-Control':'no-store'}})}}
  const action=url.pathname.match(/^\/api\/books\/(gutenberg-[1-9]\d{0,6})\/chapters\/(\d{2,4})\/(quote|translate|save)$/);
  if(request.method!=='GET'&&!(request.method==='POST'&&['translate','save'].includes(action?.[3])))return json({error:'Method not allowed'},405);
  try{

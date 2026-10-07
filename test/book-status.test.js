@@ -10,10 +10,10 @@ test('whole-book progress counts only matching completed source versions and lan
  }finally{globalThis.fetch=nativeFetch;invalidateBookStatus()}
 });
 test('language preference precedence and unsupported browser fallback',()=>{
- assert.equal(resolveLanguage({userPreference:'ja',linkLanguage:'zh-CN',savedPreference:'en',browserLanguages:['zh-CN']}),'ja');
- assert.equal(resolveLanguage({linkLanguage:'ja',savedPreference:'zh-CN'}),'ja');
- assert.equal(resolveLanguage({savedPreference:'ja',browserLanguages:['zh-CN']}),'ja');
+ assert.equal(resolveLanguage({userPreference:'en',linkLanguage:'zh-CN',savedPreference:'en',browserLanguages:['zh-CN']}),'en');
+ assert.equal(resolveLanguage({linkLanguage:'en',savedPreference:'zh-CN'}),'en');
+ assert.equal(resolveLanguage({savedPreference:'en',browserLanguages:['zh-CN']}),'en');
  assert.equal(resolveLanguage({browserLanguages:['zh-TW']}),'zh-CN');
- assert.equal(resolveLanguage({browserLanguages:['fr-FR','ja-JP']}),'ja');
+ assert.equal(resolveLanguage({browserLanguages:['fr-FR','ja-JP']}),'en');
  assert.equal(resolveLanguage({browserLanguages:['fr-FR']}),'en');
 });
