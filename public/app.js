@@ -10,7 +10,7 @@ function stop(){translationRun++;observer?.disconnect();$('pauseTranslation').hi
 function record(position){try{localStorage.setItem(storageKey(selectedBook.id,selectedChapter),position)}catch{}}
 function readSaved(target){receipts=[];try{const s=JSON.parse(localStorage.getItem(translationKey(target)));if(s?.source===JSON.stringify(chapterData.paragraphs.map(p=>p.en))){receipts=s.receipts||[];return s.texts}}catch{}return []}
 function save(target,texts){try{localStorage.setItem(translationKey(target),JSON.stringify({source:JSON.stringify(chapterData.paragraphs.map(p=>p.en)),texts,receipts}))}catch{}}
-function progress(done,message){$('translationProgress').hidden=false;$('translationBar').max=chapterData.paragraphs.length;$('translationBar').value=done;$('translationProgressLabel').textContent=message}
+function progress(done,message){$('translationProgress').hidden=false;$('translationBar').max=chapterData.paragraphs.length;$('translationBar').value=done;$('translationProgressLabel').textContent=message;$('done').hidden=message!=='已保存到共享书库'}
 function readerVisible(){ $('languageChoice').hidden=true;['readerTools','text','done'].forEach(n=>$(n).hidden=false) }
 function render(texts,originalOnly=false){
  $('text').replaceChildren();$('compare').checked=false;$('compare').disabled=originalOnly;$('text').className='';
@@ -33,13 +33,13 @@ async function openChapter(id){
  }catch(e){$('chapterTitle').textContent='正文暂时无法打开';$('readingStatus').textContent=e.message}
 }
 async function translate(){
- if(!currentQuote?.available)return;const target=$('targetLanguage').value;const run=++translationRun;const texts=readSaved(target);readerVisible();render(texts);$('pauseTranslation').hidden=false;$('translateChapter').disabled=true;history.replaceState(null,'',`?book=${selectedBook.id}&chapter=${selectedChapter}&lang=${target}`);
+ if(!currentQuote?.available)return;const target=$('targetLanguage').value;const run=++translationRun;const texts=readSaved(target);readerVisible();render(texts);$('done').hidden=true;$('readingStatus').textContent='已完成段落可直接阅读，后续内容在翻译后显示。';$('pauseTranslation').hidden=false;$('translateChapter').disabled=true;history.replaceState(null,'',`?book=${selectedBook.id}&chapter=${selectedChapter}&lang=${target}`);
  try{for(let i=0;i<chapterData.paragraphs.length;i++){if(run!==translationRun)return;if(texts[i]&&receipts[i])continue;progress(texts.filter(Boolean).length,`正在翻译 ${i+1}/${chapterData.paragraphs.length} 段`);const result=await api(`/books/${selectedBook.id}/chapters/${selectedChapter}/translate`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({target,index:i,confirmed:true})});if(run!==translationRun)return;texts[i]=result.text;receipts[i]=result.signature;save(target,texts);appendParagraph(chapterData.paragraphs[i],result.text);progress(texts.filter(Boolean).length,`已翻译 ${texts.filter(Boolean).length}/${chapterData.paragraphs.length} 段`);}progress(texts.length,'翻译完成，正在保存到共享书库…');await api(`/books/${selectedBook.id}/chapters/${selectedChapter}/save`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({target,confirmed:true,rows:texts.map((text,index)=>({index,text,signature:receipts[index]}))})});if(run!==translationRun)return;progress(texts.length,'已保存到共享书库');chapterData.shared=true;$('readingStatus').textContent='本章翻译完成并已保存，其他读者可直接阅读。';}catch(e){if(run===translationRun){progress(texts.filter(Boolean).length,'已暂停，完成部分已保留');$('readingStatus').textContent=`${e.message} 可稍后继续；提交失败时会重试保存，完整译文不会重新翻译。`;$('resumeTranslation').hidden=false;}}finally{if(run===translationRun)$('pauseTranslation').hidden=true;}
 }
 $('translateChapter').onclick=translate;
 $('pauseTranslation').onclick=()=>{stop();$('readingStatus').textContent='已暂停。已完成的译文保留在当前浏览器。';$('resumeTranslation').hidden=false};
 $('resumeTranslation').onclick=()=>{$('resumeTranslation').hidden=true;translate()};
-$('readOriginal').onclick=()=>{stop();readerVisible();render([],true);$('readingStatus').textContent='正在免费阅读原文。'};
+$('readOriginal').onclick=()=>{stop();$('translationProgress').hidden=true;readerVisible();render([],true);$('readingStatus').textContent='正在免费阅读原文。'};
 $('switchOriginal').onclick=$('readOriginal').onclick;$('targetLanguage').onchange=updateQuote;
 $('search').onsubmit=e=>{e.preventDefault();search()};$('back').onclick=()=>{stop();show('library');history.replaceState(null,'','/');search()};$('toc').onclick=()=>{stop();$('resumeTranslation').hidden=true;openBook(selectedBook.id)};
 $('compare').onchange=()=>$('text').classList.toggle('compare',$('compare').checked);

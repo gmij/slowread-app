@@ -10,9 +10,9 @@ Translation uses Cloudflare Workers AI Qwen3-30B-A3B-FP8. A deployment with `TRA
 
 Only source paragraph text is submitted to AI, never arbitrary client text. Origin and chapter/index validation, chapter/paragraph size limits, bounded source URLs, short-lived in-memory caches, and incomplete-model-output detection constrain the prototype. This is not a hardened multi-tenant paid service; no authentication, payment, or globally durable rate/budget ledger exists.
 
-Source cache: up to eight books, ten minutes per Worker isolate. Translation cache: up to 500 paragraphs, one hour per isolate. Completed and partial translations additionally persist in browser localStorage keyed by source content and model version; they resume without retranslating completed paragraphs. No server-side durable shared translation library is implemented. Share links send location and target language, not another reader's local translations. Clearing browser storage loses translations.
+Source cache: up to eight books, ten minutes per Worker isolate. Translation cache: up to 500 paragraphs, one hour per isolate. Partial progress and signed receipts additionally persist in browser localStorage keyed by source content and model version. Completed chapter translations are saved to the shared content repository and reused by other readers. Clearing browser storage loses only unsubmitted progress.
 
-Two repositories remain: app/frontend/Worker here, authored sample originals/translations in `gmij/slowread-library`. The first Pride and Prejudice chapter snapshot in `src/sample` comes from that private content repo. Dynamically imported books and new translations are not committed to GitHub automatically.
+Two repositories remain: app/frontend/Worker here, originals/translations in the public `gmij/slowread-library`. The first Pride and Prejudice chapter snapshot in `src/sample` supplies the initial sample. New completed translations and corresponding original chapters are committed automatically through the Worker using a repository-scoped runtime secret.
 
 Deploy: `npm install`, `npm run deploy`. GitHub main also triggers Cloudflare builds. Local source is E:/Slowread/app, library is E:/Slowread/library. Tests: `npm test`; dry-run `npx wrangler deploy --dry-run`. UI and live model output must be verified separately from unit tests.
 
