@@ -1,0 +1,19 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {bookStatus,invalidateBookStatus} from '../src/book-status.js';
+import {sourceHash} from '../src/shared-library.js';
+import {resolveLanguage} from '../public/language.js';
+test('whole-book progress counts only matching completed source versions and languages',async()=>{
+ const book={id:'gutenberg-11',number:11,sections:[{id:'01',paragraphs:[{id:'p1',text:'One'}]},{id:'02',paragraphs:[{id:'p1',text:'Two'}]}]},hash=await sourceHash(book.sections[0]),nativeFetch=globalThis.fetch;
+ try{invalidateBookStatus();globalThis.fetch=async()=>Response.json({tree:[{type:'blob',path:`books/gutenberg-11/translations/zh-CN/01-${hash}.json`},{type:'blob',path:'books/gutenberg-11/translations/zh-CN/02-old-version.json'}]});const zh=await bookStatus(book,'zh-CN',{CONTENT_REPO:'example/library'});assert.equal(zh.translatedChapters,1);assert.equal(zh.percent,50);assert.equal(zh.readers,null);assert.equal((await bookStatus(book,'ja',{CONTENT_REPO:'example/library'})).percent,0);assert.equal((await bookStatus(book,'en',{CONTENT_REPO:'example/library'})).percent,100);
+ invalidateBookStatus();globalThis.fetch=async()=>Response.json({tree:[],truncated:true});await assert.rejects(()=>bookStatus(book,'zh-CN',{CONTENT_REPO:'example/library'}));
+ }finally{globalThis.fetch=nativeFetch;invalidateBookStatus()}
+});
+test('language preference precedence and unsupported browser fallback',()=>{
+ assert.equal(resolveLanguage({userPreference:'ja',linkLanguage:'zh-CN',savedPreference:'en',browserLanguages:['zh-CN']}),'ja');
+ assert.equal(resolveLanguage({linkLanguage:'ja',savedPreference:'zh-CN'}),'ja');
+ assert.equal(resolveLanguage({savedPreference:'ja',browserLanguages:['zh-CN']}),'ja');
+ assert.equal(resolveLanguage({browserLanguages:['zh-TW']}),'zh-CN');
+ assert.equal(resolveLanguage({browserLanguages:['fr-FR','ja-JP']}),'ja');
+ assert.equal(resolveLanguage({browserLanguages:['fr-FR']}),'en');
+});

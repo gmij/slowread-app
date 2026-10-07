@@ -3,6 +3,7 @@ import original from './sample/original.json';
 import translation from './sample/zh.json';
 import {quote,translateParagraph,languages} from './translator.js';
 import {readShared,saveShared,receipt,sourceHash} from './shared-library.js';
+import {bookStatus,invalidateBookStatus} from './book-status.js';
 const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'private, max-age=60'}});
 export default {async fetch(request,env){
  const url=new URL(request.url);if(!url.pathname.startsWith('/api/'))return env.ASSETS.fetch(request);
@@ -20,7 +21,7 @@ export default {async fetch(request,env){
    if(Number(request.headers.get('Content-Length')||0)>(action[3]==='save'?500000:2048))return json({error:'Request too large'},413);
    const body=await request.text();if(body.length>(action[3]==='save'?500000:2048))return json({error:'Request too large'},413);
    const input=JSON.parse(body);if(!languages[input.target]||input.confirmed!==true)return json({error:'请先确认语言与本章费用'},400);
-   if(action[3]==='save')return json(await saveShared(book,chapter,input.target,input.rows,env));
+   if(action[3]==='save'){const saved=await saveShared(book,chapter,input.target,input.rows,env);invalidateBookStatus();return json(saved);}
    if(!Number.isInteger(input.index)||input.index<0||input.index>=chapter.paragraphs.length)return json({error:'段落不存在'},400);
    if(chapter.paragraphs.reduce((n,p)=>n+p.text.length,0)>50000)return json({error:'此章超出试用长度上限，可以阅读原文。'},413);
    const shared=await readShared(book,chapter,input.target,env);
@@ -28,10 +29,13 @@ export default {async fetch(request,env){
    return Response.json({index:input.index,id:chapter.paragraphs[input.index].id,...result,...await receipt(book,chapter,input.target,input.index,result.text,env)},{headers:{'Cache-Control':'no-store'}});
   }
   if(url.pathname==='/api/books')return json(await searchBooks((url.searchParams.get('q')||'').trim().slice(0,200)));
+  const statusMatch=url.pathname.match(/^\/api\/books\/(gutenberg-[1-9]\d{0,6})\/status$/);
+  if(statusMatch){const target=url.searchParams.get('target')||'zh-CN';if(target!=='en'&&!languages[target])return json({error:'Language not supported'},400);return json(await bookStatus(await loadBook(statusMatch[1]),target,env));}
   const m=url.pathname.match(/^\/api\/books\/(gutenberg-[1-9]\d{0,6})(?:\/chapters\/(\d{2,4}))?$/);if(!m)return json({error:'Not found'},404);
   const book=await loadBook(m[1]);if(!m[2]){const {sections,...details}=book;return json(details);}
   const c=book.sections.find(c=>c.id===m[2]);if(!c)return json({error:'Chapter not found'},404);
-  const target=url.searchParams.get('target')||'zh-CN';if(!languages[target])return json({error:'Language not supported'},400);
+  const target=url.searchParams.get('target')||'zh-CN';if(target!=='en'&&!languages[target])return json({error:'Language not supported'},400);
+  if(target==='en')return json({bookId:book.id,id:c.id,title:c.title,language:'en',paragraphs:c.paragraphs.map(p=>({id:p.id,en:p.text})),source:book.source});
   const shared=await readShared(book,c,target,env);if(shared)return json(shared);
   if(target==='zh-CN'&&book.number===1342&&c.id==='01')return json({bookId:book.id,id:c.id,title:c.title,language:'zh-CN',paragraphs:original.paragraphs.map((p,i)=>({id:p.id,en:p.text,zh:translation.paragraphs[i].text})),source:book.source});
   return json({bookId:book.id,id:c.id,title:c.title,language:'en',paragraphs:c.paragraphs.map(p=>({id:p.id,en:p.text})),source:book.source});
