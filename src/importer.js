@@ -14,7 +14,7 @@ export function splitChapters(raw){
  const marks=[...text.matchAll(/^[ \t]*CHAPTER[ \t]+(?:[IVXLCDM]+|\d+)[.\]:]?[^\n]{0,100}$/gim)];
  const sections=marks.map((m,i)=>({title:m[0].trim().replace(/\]$/,''),text:text.slice(m.index+m[0].length,marks[i+1]?.index??text.length)})).filter(s=>s.text.trim().length>300);
  if(!sections.length){const p=text.split(/\n\s*\n/);for(let i=0;i<p.length;i+=30)sections.push({title:`阅读分节 ${sections.length+1}`,text:p.slice(i,i+30).join('\n\n')});}
- return sections.map((s,i)=>({id:String(i+1).padStart(2,'0'),title:s.title,paragraphs:s.text.replace(/\[Illustration:[\s\S]*?\]/gi,'').split(/\n\s*\n/).map(p=>p.replace(/\s*\n\s*/g,' ').trim()).filter(Boolean).map((text,j)=>({id:`p${j+1}`,text}))}));
+ return sections.map((s,i)=>({id:String(i+1).padStart(2,'0'),title:s.title,paragraphs:s.text.replace(/\[Illustration:[\s\S]*?\]/gi,'').split(/\n\s*\n/).map(p=>p.replace(/\s*\n\s*/g,' ').trim()).filter(p=>/\p{L}/u.test(p)&&!/^\[Illustration\]$/i.test(p)).map((text,j)=>({id:`p${j+1}`,text}))}));
 }
 export async function searchBooks(q){
  const local=knownBooks.filter(b=>!q||[b.title,b.titleEn,b.author,...b.aliases].join(' ').toLowerCase().includes(q.toLowerCase())).map(describe);if(!q||local.length)return {books:local,searchScope:'经典书籍索引'};
