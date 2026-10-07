@@ -2,7 +2,7 @@ const $=id=>document.getElementById(id);
 let selectedBook,selectedChapter,chapterData,observer,currentQuote,translationRun=0;
 const params=new URLSearchParams(location.search);
 const storageKey=(b,c)=>`slowread:${b}:${c}`;
-const translationKey=target=>`slowread:translation:${selectedBook.id}:${selectedChapter}:${target}`;
+const translationKey=target=>`slowread:translation:qwen-v1:${selectedBook.id}:${selectedChapter}:${target}`;
 function show(id){['library','detail','reading'].forEach(n=>$(n).hidden=n!==id)}
 function node(tag,text){const n=document.createElement(tag);n.textContent=text;return n}
 async function api(path,options){const r=await fetch('/api'+path,options);const data=await r.json();if(!r.ok)throw new Error(data.error||'请求失败');return data}
