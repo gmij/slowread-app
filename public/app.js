@@ -52,7 +52,7 @@ $('preferredLanguage').value=preferredTarget;
 $('languageLabel').textContent=preferredTarget==='en'?'English':'中文';
 $('openRequest').onclick=()=>{$('requestTitle').value=$('query').value.trim();$('requestDialog').showModal()};
 $('closeRequest').onclick=()=>$('requestDialog').close();
-$('requestForm').onsubmit=e=>{e.preventDefault();const url=requestIssueUrl({title:$('requestTitle').value,author:$('requestAuthor').value,language:preferredTarget,notes:$('requestNotes').value});const tab=window.open(url,'_blank','noopener,noreferrer');$('requestStatus').textContent='请在 GitHub 页面确认提交，并关注该请求以接收通知。';};
+$('requestForm').onsubmit=e=>{e.preventDefault();const url=requestIssueUrl({title:$('requestTitle').value,author:$('requestAuthor').value,language:preferredTarget,notes:$('requestNotes').value});location.assign(url);};
 async function initLogin(){try{const [providers,me]=await Promise.all([api('/auth/providers'),api('/me')]);if(me.user){const button=node('button',me.user.name+' · 退出');button.onclick=async()=>{await api('/auth/logout',{method:'POST'}).catch(()=>{});location.reload()};document.querySelector('.header-actions').append(button)}else if(providers.github){const button=node('button','GitHub 登录');button.onclick=()=>location.assign('/api/auth/github/start');document.querySelector('.header-actions').append(button)}}catch{}}
 initLogin();
 $('preferredLanguage').onchange=()=>{chooseLanguage($('preferredLanguage').value);if(!$('library').hidden)search();else if(!$('detail').hidden)openBook(selectedBook.id);else openChapter(selectedChapter)};
