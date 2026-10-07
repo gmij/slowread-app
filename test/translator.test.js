@@ -1,0 +1,7 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {quote,chunks,translateParagraph} from '../src/translator.js';
+test('quote disclosure, chunk completeness and translation errors',async()=>{
+ const q=quote([{text:'Hello world'}],'zh-CN',false);assert.equal(q.readerPriceUsd,0);assert.equal(q.available,false);assert.ok(q.estimatedProviderCostUsd>0);assert.throws(()=>quote([],'invalid',true));
+ const text=('One sentence. ').repeat(120);assert.equal(chunks(text).join(' ').replace(/\s/g,''),text.replace(/\s/g,''));assert.ok(chunks(text).every(c=>c.length<=600));
+ let calls=0;const ai={run:async()=>{calls++;return {translated_text:'真实返回的译文'}}};assert.equal((await translateParagraph('Unique test input','zh-CN',ai)).text,'真实返回的译文');assert.equal((await translateParagraph('Unique test input','zh-CN',ai)).cached,true);assert.equal(calls,1);await assert.rejects(()=>translateParagraph('Other input','ja',{run:async()=>({})}),/有效文本/);
+});
