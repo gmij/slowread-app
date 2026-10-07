@@ -14,6 +14,7 @@
     "CONTENT_REF": "main",
     "TRANSLATION_ENABLED": "true",
     "BOOK_REQUESTS_ENABLED": "true",
+    "BOOKSHELF_STORAGE": "durable-object",
     "TRANSLATION_DAILY_CHARACTERS": "100000"
   },
   "ai": {
