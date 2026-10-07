@@ -1,0 +1,15 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {authRoute,verifyCookie} from '../src/auth.js';
+import {createBookRequest} from '../src/book-requests.js';
+test('Google verified JWT creates pending session and email never enters public Issue',async()=>{
+ const env={AUTH_SESSION_SECRET:'a'.repeat(40),ACCOUNTS:{idFromName:id=>id,get:()=>({fetch:async()=>Response.json({profile:null})})},EMAIL_PROVIDER:'resend',EMAIL_FROM:'test@example.com',RESEND_API_KEY:'test',GOOGLE_CLIENT_ID:'client',GOOGLE_CLIENT_SECRET:'secret',BOOK_REQUESTS_ENABLED:'true',CONTENT_REPO:'example/books',GITHUB_ISSUES_TOKEN:'test'};
+ const start=await authRoute(new Request('https://slowread.test/api/auth/google/start'),env),cookie=start.headers.get('Set-Cookie').split(';')[0],flow=await verifyCookie(cookie.slice(cookie.indexOf('=')+1),env);
+ const keys=await crypto.subtle.generateKey({name:'RSASSA-PKCS1-v1_5',modulusLength:2048,publicExponent:new Uint8Array([1,0,1]),hash:'SHA-256'},true,['sign','verify']),jwk={...await crypto.subtle.exportKey('jwk',keys.publicKey),kid:'integration'};
+ const b64=v=>Buffer.from(v).toString('base64url'),claims={iss:'https://accounts.google.com',aud:'client',sub:'987',nonce:flow.nonce,iat:Math.floor(Date.now()/1000),exp:Math.floor(Date.now()/1000)+300,email:'private@example.com',email_verified:true},body=b64(JSON.stringify({alg:'RS256',kid:'integration'}))+'.'+b64(JSON.stringify(claims)),token=body+'.'+b64(await crypto.subtle.sign('RSASSA-PKCS1-v1_5',keys.privateKey,new TextEncoder().encode(body)));
+ const old=globalThis.fetch;globalThis.fetch=async(url,options)=>{if(url==='https://oauth2.googleapis.com/token'){assert.equal(options.body.get('code_verifier'),flow.verifier);return Response.json({id_token:token})}if(url==='https://www.googleapis.com/oauth2/v3/certs')return Response.json({keys:[jwk]});if(url.includes('/issues')){assert.equal(options.body.includes('private@example.com'),false);assert.equal(options.body.includes('通知通过 GitHub'),false);return Response.json({number:123},{status:201})}throw Error(url)};
+ try{const callback=await authRoute(new Request('https://slowread.test/api/auth/google/callback?state='+flow.state+'&code=test',{headers:{Cookie:cookie}}),env);assert.equal(callback.status,302);const sessionCookie=callback.headers.getSetCookie()[0].split(';')[0],session=await verifyCookie(sessionCookie.slice(sessionCookie.indexOf('=')+1),env);assert.equal(session.id,'google:987');assert.equal(session.emailVerifiedAt,undefined);
+ const request=c=>new Request('https://slowread.test/api/requests',{method:'POST',headers:{Origin:'https://slowread.test',Cookie:c},body:JSON.stringify({title:'Google privacy test',language:'en'})});assert.equal((await createBookRequest(request(sessionCookie),env)).status,403);
+ const {signCookie}=await import('../src/auth.js');assert.equal((await createBookRequest(request('__Host-slowread-session='+await signCookie({...session,emailVerifiedAt:Date.now()},env)),env)).status,201);
+ }finally{globalThis.fetch=old}
+});

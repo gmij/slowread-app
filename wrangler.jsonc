@@ -22,6 +22,7 @@
   },
   "durable_objects": {
     "bindings": [
+      {"name":"ACCOUNTS","class_name":"UserAccount"},
       {"name":"BOOKSHELVES","class_name":"UserBookshelf"},
       {
         "name": "TRANSLATIONS",
@@ -36,6 +37,7 @@
         "TranslationCoordinator"
       ]
     },
-    {"tag":"v2-user-bookshelves","new_sqlite_classes":["UserBookshelf"]}
+    {"tag":"v2-user-bookshelves","new_sqlite_classes":["UserBookshelf"]},
+    {"tag":"v3-user-accounts","new_sqlite_classes":["UserAccount"]}
   ]
 }

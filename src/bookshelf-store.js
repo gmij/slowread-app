@@ -1,3 +1,4 @@
+import {validAccountId} from './identity.js';
 import {shelfEntry} from './bookshelf-data.js';
 // Storage contract: list(accountId) -> entries; upsert(accountId, entry) -> void.
 // Accounts are always supplied by the verified application layer.
@@ -9,7 +10,7 @@ export function createBookshelfStore(env){
 }
 export class DurableObjectBookshelfStore {
  constructor(namespace){this.namespace=namespace}
- account(id){if(!/^github:\d+$/.test(id))throw Error('书架账号无效');return this.namespace.get(this.namespace.idFromName(id))}
+ account(id){if(!validAccountId(id))throw Error('书架账号无效');return this.namespace.get(this.namespace.idFromName(id))}
  async list(id){const response=await this.account(id).fetch('https://bookshelf.internal/');if(!response.ok)throw Error('书架读取失败');const data=await response.json();return data.books.map(shelfEntry)}
  async upsert(id,entry){const response=await this.account(id).fetch('https://bookshelf.internal/',{method:'POST',body:JSON.stringify(shelfEntry(entry))});if(!response.ok)throw Error('书架保存失败')}
 }

@@ -1,4 +1,7 @@
 const enc=new TextEncoder();
+import {socialRoute,socialConfigured,finishLogin} from './oauth-login.js';
+import {accountStub} from './accounts.js';
+import {mailConfigured} from './mail.js';
 const base64=bytes=>{let s='';for(const b of new Uint8Array(bytes))s+=String.fromCharCode(b);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')};
 const unbase64=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
 const random=()=>base64(crypto.getRandomValues(new Uint8Array(32)));
@@ -11,8 +14,17 @@ const getCookie=(request,name)=>request.headers.get('Cookie')?.split(';').map(s=
 const json=(value,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'no-store'}});
 export async function authRoute(request,env){
  const url=new URL(request.url),path=url.pathname;if(path!=='/api/me'&&!path.startsWith('/api/auth/'))return null;
- if(path==='/api/auth/providers')return json({github:configured(env),google:false,apple:false,x:false,bookRequests:env.BOOK_REQUESTS_ENABLED==='true'});
- if(path==='/api/me'){const session=await verifyCookie(getCookie(request,'__Host-slowread-session'),env);return json({user:session?{id:session.id,name:session.name,provider:'github'}:null})}
+ if(path==='/api/auth/providers')return json({github:configured(env),google:socialConfigured('google',env),apple:socialConfigured('apple',env),emailVerification:mailConfigured(env)&&!!env.ACCOUNTS,x:false,bookRequests:env.BOOK_REQUESTS_ENABLED==='true'});
+ if(path==='/api/me'){const session=await verifyCookie(getCookie(request,'__Host-slowread-session'),env);return json({user:session?{id:session.id,name:session.name,provider:session.provider||'github',email:session.email||null,emailVerified:!!session.emailVerifiedAt}:null})}
+ if(path==='/api/auth/email/send'||path==='/api/auth/email/verify'){
+  if(request.method!=='POST'||request.headers.get('Origin')!==url.origin)return json({error:'请从本站验证邮箱'},403);
+  const session=await verifyCookie(getCookie(request,'__Host-slowread-session'),env);if(!session)return json({error:'请先登录'},401);
+  if(!mailConfigured(env)||!env.ACCOUNTS)return json({error:'邮箱验证服务尚未配置'},503);
+  const text=await request.text();if(text.length>1024)return json({error:'请求过长'},413);let input;try{input=JSON.parse(text)}catch{return json({error:'请求无效'},400)}
+  const response=await accountStub(env,session.id).fetch('https://account.internal/'+(path.endsWith('/send')?'send':'verify'),{method:'POST',body:JSON.stringify({id:session.id,email:input?.email,code:input?.code})});if(!response.ok||path.endsWith('/send'))return response;
+  const {profile}=await response.json();return new Response(JSON.stringify({verified:true}),{headers:{'Content-Type':'application/json','Cache-Control':'no-store','Set-Cookie':cookie('__Host-slowread-session',await signCookie({...session,email:profile.email,emailVerifiedAt:profile.emailVerifiedAt,exp:Date.now()+604800000},env),604800)}});
+ }
+ const social=await socialRoute(request,env);if(social)return social;
  if(path==='/api/auth/logout'){if(request.method!=='POST'||request.headers.get('Origin')!==url.origin)return json({error:'Invalid request'},403);return new Response(null,{status:204,headers:{'Set-Cookie':cookie('__Host-slowread-session','',0),'Cache-Control':'no-store'}})}
  if(request.method!=='GET')return json({error:'Method not allowed'},405);
  if(!configured(env))return json({error:'GitHub 登录尚未配置'},503);
@@ -26,7 +38,7 @@ export async function authRoute(request,env){
   const response=await fetch('https://github.com/login/oauth/access_token',{method:'POST',headers:{Accept:'application/json','Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:env.GITHUB_OAUTH_CLIENT_ID,client_secret:env.GITHUB_OAUTH_CLIENT_SECRET,code:url.searchParams.get('code'),redirect_uri:url.origin+'/api/auth/github/callback',code_verifier:state.verifier})});
   const token=await response.json();if(!response.ok||!token.access_token)return json({error:'登录未完成，请重试'},400);
   const profileResponse=await fetch('https://api.github.com/user',{headers:{Authorization:`Bearer ${token.access_token}`,Accept:'application/vnd.github+json','User-Agent':'Slowread-Worker'}});if(!profileResponse.ok)return json({error:'暂时无法确认 GitHub 身份'},503);const profile=await profileResponse.json();if(!Number.isSafeInteger(profile.id)||typeof profile.login!=='string')return json({error:'身份信息无效'},400);
-  const headers=new Headers({Location:'/', 'Cache-Control':'no-store'});headers.append('Set-Cookie',cookie('__Host-slowread-session',await signCookie({id:`github:${profile.id}`,name:profile.login,exp:Date.now()+604800000},env),604800));headers.append('Set-Cookie',cookie('__Host-slowread-oauth','',0));return new Response(null,{status:302,headers});
+  const result=await finishLogin({id:`github:${profile.id}`,name:profile.login,provider:'github'},env);result.headers.append('Set-Cookie',cookie('__Host-slowread-oauth','',0));return result;
  }
  return json({error:'Not found'},404);
 }

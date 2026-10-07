@@ -1,3 +1,4 @@
+import {validAccountId} from './identity.js';
 // Portable data contract, independent of Cloudflare bindings and authentication.
 export const BOOKSHELF_SCHEMA_VERSION=1;
 export function shelfEntry(value){
@@ -5,7 +6,7 @@ export function shelfEntry(value){
  return Object.fromEntries(['book','title','author','chapter','chapterTitle','position','language','updatedAt'].map(k=>[k,value[k]]));
 }
 export function shelfSnapshot(accountId,books){
- if(!/^github:\d+$/.test(accountId))throw Error('书架账号无效');
+ if(!validAccountId(accountId))throw Error('书架账号无效');
  return {schemaVersion:BOOKSHELF_SCHEMA_VERSION,accountId,books:books.map(shelfEntry)};
 }
 export async function importShelfSnapshot(store,accountId,snapshot){

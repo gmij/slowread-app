@@ -1,3 +1,4 @@
+import {validAccountId} from './identity.js';
 import {verifyCookie} from './auth.js';
 import {loadBook} from './importer.js';
 import {createBookshelfStore} from './bookshelf-store.js';
@@ -8,7 +9,8 @@ export async function bookshelfRoute(request,env,loader=loadBook,storeFactory=cr
  const url=new URL(request.url);
  const raw=request.headers.get('Cookie')?.split(';').map(s=>s.trim()).find(s=>s.startsWith('__Host-slowread-session='))?.slice('__Host-slowread-session='.length)||'';
  const session=await verifyCookie(raw,env);
- if(!session||!/^github:\d+$/.test(session.id))return json({error:'请先登录后使用我的书架'},401);
+ if(!session||!validAccountId(session.id))return json({error:'请先登录后使用我的书架'},401);
+ if(!session.id.startsWith('github:')&&!session.emailVerifiedAt)return json({error:'请先完成邮箱验证码验证'},403);
  if(!['GET','POST'].includes(request.method))return json({error:'Method not allowed'},405);
  if(request.method==='POST'&&request.headers.get('Origin')!==url.origin)return json({error:'请从本站保存阅读进度'},403);
  // Only the verified session chooses the account. Client-supplied user ids are ignored.
