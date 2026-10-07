@@ -2,7 +2,7 @@ import {originalResponse} from './book-response.js';
 import {searchBooks,loadBook} from './importer.js';
 import original from './sample/original.json';
 import translation from './sample/zh.json';
-import {quote,translateParagraph,languages} from './translator.js';
+import {quote,translateParagraph,languages,TRANSLATION_ENGINE_VERSION} from './translator.js';
 import {readShared,saveShared,receipt,sourceHash} from './shared-library.js';
 export {TranslationCoordinator} from './translation-coordinator.js';
 import {bookStatus,invalidateBookStatus} from './book-status.js';
@@ -17,7 +17,7 @@ export default {async fetch(request,env){
  if(request.method!=='GET'&&!(request.method==='POST'&&['translate','save'].includes(action?.[3])))return json({error:'Method not allowed'},405);
  try{
   if(url.pathname==='/api/translation-status'){if(!env.TRANSLATIONS)return json({available:false,message:'翻译任务服务暂不可用'});return env.TRANSLATIONS.get(env.TRANSLATIONS.idFromName('global-v1')).fetch('https://translation.internal/status');}
-  if(url.pathname==='/api/health')return json({ok:true,mode:'source-import',translationEnabled:env.TRANSLATION_ENABLED==='true'&&!!env.AI&&!!env.GITHUB_CONTENT_TOKEN&&!!env.TRANSLATIONS,sharedWritesEnabled:!!env.GITHUB_CONTENT_TOKEN});
+  if(url.pathname==='/api/health')return json({ok:true,mode:'source-import',translationEngine:TRANSLATION_ENGINE_VERSION,translationEnabled:env.TRANSLATION_ENABLED==='true'&&!!env.AI&&!!env.GITHUB_CONTENT_TOKEN&&!!env.TRANSLATIONS,sharedWritesEnabled:!!env.GITHUB_CONTENT_TOKEN});
   if(action){
    const book=await loadBook(action[1]);const chapter=book.sections.find(c=>c.id===action[2]);if(!chapter)return json({error:'Chapter not found'},404);
    const enabled=env.TRANSLATION_ENABLED==='true'&&!!env.AI&&!!env.GITHUB_CONTENT_TOKEN&&!!env.TRANSLATIONS;

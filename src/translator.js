@@ -1,5 +1,6 @@
 export const MODEL='@cf/qwen/qwen3-30b-a3b-fp8';
 export const PROMPT_VERSION='bidirectional-v2';
+export const TRANSLATION_ENGINE_VERSION='classics-20261007-3';
 export const languages={'zh-CN':'zh','en':'en','ja':'ja'};
 const translations=new Map();
 const literaryTerms={'天地':'heaven and earth','混沌':'primordial chaos','洲':'continent','傲來':'Aolai','傲来':'Aolai','麒麟':'qilin','熏陶':'nurture','弹':'pellets','彈':'pellets'};
