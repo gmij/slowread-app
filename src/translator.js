@@ -27,7 +27,18 @@ export async function translateParagraph(text,target,ai,sourceLanguage='en'){
   }
   const choice=r?.choices?.[0];if(choice?.finish_reason==='length')throw new Error('译文超过长度限制，已停止而非保存不完整正文');
   const result=choice?.message?.content??r?.response;
-  if(typeof result!=='string'||!result.trim())throw new Error('翻译服务未返回有效文本');const cleaned=result.replace(/<think>[\s\S]*?<\/think>/g,'').trim();if(!cleaned||cleaned.includes('<think>'))throw new Error('翻译服务未返回完整译文');if(target==='en'&&/\p{Script=Han}/u.test(cleaned))throw new Error('英文译文仍有未翻译文字，已暂停，请稍后继续翻译。');output.push(cleaned);
+  if(typeof result!=='string'||!result.trim())throw new Error('翻译服务未返回有效文本');let cleaned=result.replace(/<think>[\s\S]*?<\/think>/g,'').trim();if(!cleaned||cleaned.includes('<think>'))throw new Error('翻译服务未返回完整译文');
+  if(target==='en'&&/\p{Script=Han}/u.test(cleaned)){
+   const terms=[...new Set(cleaned.match(/\p{Script=Han}+/gu))];
+   if(terms.length>8)throw new Error('英文译文仍有未翻译文字，已暂停，请稍后继续翻译。');
+   for(const term of terms){const index=cleaned.indexOf(term),context=cleaned.slice(Math.max(0,index-120),index+term.length+120);
+    const correction=await ai.run(MODEL,{messages:[{role:'system',content:'Translate the single Chinese term into English using the surrounding English context. For a proper name, output its romanized spelling. Output ONLY the English replacement phrase, no Chinese characters, explanation or reasoning. /no_think'},{role:'user',content:'Term: '+term+'\nContext: '+context+'\n/no_think'}],temperature:0,max_tokens:128});
+    const replacement=(correction?.choices?.[0]?.message?.content??correction?.response??'').replace(/<think>[\s\S]*?<\/think>/g,'').trim();
+    if(!replacement||replacement.length>300||/\p{Script=Han}/u.test(replacement)||correction?.choices?.[0]?.finish_reason==='length')throw new Error('英文译文仍有未翻译文字，已暂停，请稍后继续翻译。');
+    cleaned=cleaned.split(term).join(replacement);
+   }
+  }
+  output.push(cleaned);
  }
  const translated=output.join(' ');if(translations.size>=500)translations.delete(translations.keys().next().value);translations.set(key,{text:translated,expires:Date.now()+3600000});return {text:translated,cached:false};
 }
