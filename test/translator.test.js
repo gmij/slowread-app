@@ -1,5 +1,9 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {quote,chunks,translateParagraph} from '../src/translator.js';
+test('English output retries mixed text and rejects uncorrected Chinese fragments',async()=>{
+ let calls=0;const corrected=await translateParagraph('完整性校验甲','en',{run:async()=>({response:++calls===1?'The 天地 opened.':'Heaven and earth opened.'})},'zh-CN');assert.equal(calls,2);assert.equal(corrected.text,'Heaven and earth opened.');
+ await assert.rejects(()=>translateParagraph('完整性校验乙','en',{run:async()=>({response:'The 天地 opened.'})},'zh-CN'),/未翻译/);
+});
 test('quote disclosure, chunk completeness and translation errors',async()=>{
  const q=quote([{text:'Hello world'}],'zh-CN',false);assert.equal(q.readerPriceUsd,0);assert.equal(q.available,false);assert.ok(q.estimatedProviderCostUsd>0);assert.throws(()=>quote([],'invalid',true));
  const text=('One sentence. ').repeat(120);assert.equal(chunks(text).join(' ').replace(/\s/g,''),text.replace(/\s/g,''));assert.ok(chunks(text).every(c=>c.length<=600));

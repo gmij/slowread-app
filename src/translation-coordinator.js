@@ -1,4 +1,4 @@
-import {translateParagraph,languages} from './translator.js';
+import {translateParagraph,languages,PROMPT_VERSION} from './translator.js';
 
 // One named object coordinates all new inference across Worker isolates.
 export class TranslationCoordinator {
@@ -11,7 +11,7 @@ export class TranslationCoordinator {
   if(new URL(request.url).pathname==='/status')return Response.json({available:this.used<this.limit(),remainingCharacters:Math.max(0,this.limit()-this.used),maximumCharacters:this.limit(),activeTasks:this.jobs.size,message:this.used>=this.limit()?'今日试用翻译额度已用完，可继续阅读已有译文和原文。':'新翻译使用全站每日试用额度；额度每日 UTC 00:00 重置。'}, {headers});
   const {text,target,sourceLanguage}=await request.json();
   if(typeof text!=='string'||!text.trim()||text.length>12000||!languages[target]||!['en','zh-CN'].includes(sourceLanguage))return Response.json({error:'翻译任务无效'},{status:400,headers});
-  const key=sourceLanguage+':'+target+':'+text;
+  const key=PROMPT_VERSION+':'+sourceLanguage+':'+target+':'+text;
   const cached=this.cache.get(key);if(cached?.expires>Date.now())return Response.json({...cached.result,cached:true},{headers});
   if(this.jobs.has(key))return (await this.jobs.get(key)).clone();
   if(this.jobs.size>=2)return Response.json({error:'翻译服务正在处理其他章节，请稍后点击继续翻译。'},{status:429,headers});

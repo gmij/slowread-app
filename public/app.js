@@ -22,8 +22,8 @@ function record(position){if(!selectedBook||!selectedChapter)return;recentReadin
 function restorePosition(position){let saved=position;try{saved||=localStorage.getItem(storageKey(selectedBook.id,selectedChapter))}catch{}if(saved&&/^p[1-9]\d*$/.test(saved))requestAnimationFrame(()=>document.getElementById(saved)?.scrollIntoView({block:'start'}))}
 function navigation(){const index=selectedBook.chapters.findIndex(c=>c.id===selectedChapter);$('chapterNavigation').hidden=false;$('previousChapter').disabled=index<=0;$('nextChapter').disabled=index<0||index===selectedBook.chapters.length-1}
 function originalLanguage(){return selectedBook.sourceLanguage||'en'}
-function readSaved(target){receipts=[];try{const s=JSON.parse(localStorage.getItem(translationKey(target)));if(s?.source===JSON.stringify(chapterData.paragraphs.map(p=>p.en))){receipts=s.receipts||[];return s.texts}}catch{}return []}
-function save(target,texts){try{localStorage.setItem(translationKey(target),JSON.stringify({source:JSON.stringify(chapterData.paragraphs.map(p=>p.en)),texts,receipts}))}catch{}}
+function readSaved(target){receipts=[];try{const s=JSON.parse(localStorage.getItem(translationKey(target)));if(s?.source===JSON.stringify(chapterData.paragraphs.map(p=>p.en))&&(originalLanguage()!=='zh-CN'||target!=='en'||s.version==='bidirectional-v2')){receipts=s.receipts||[];return s.texts}}catch{}return []}
+function save(target,texts){try{localStorage.setItem(translationKey(target),JSON.stringify({version:'bidirectional-v2',source:JSON.stringify(chapterData.paragraphs.map(p=>p.en)),texts,receipts}))}catch{}}
 function progress(done,message){$('translationProgress').hidden=false;$('translationBar').max=chapterData.paragraphs.length;$('translationBar').value=done;$('translationProgressLabel').textContent=message;$('done').hidden=message!=='已保存到共享书库'}
 function readerVisible(){ $('languageChoice').hidden=true;navigation();['readerTools','text','done'].forEach(n=>$(n).hidden=false) }
 function render(texts,originalOnly=false){
