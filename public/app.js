@@ -1,9 +1,10 @@
 const $=id=>document.getElementById(id);
 import {resolveLanguage,languageNames} from './language.js';
-import {requestIssueUrl} from './requests.js';
+
 let selectedBook,selectedChapter,chapterData,observer,currentQuote,translationRun=0,receipts=[];
 const params=new URLSearchParams(location.search);
 let savedLanguage;try{savedLanguage=localStorage.getItem('slowread:preferred-language')}catch{}
+let siteUser=null;
 // A verified account preference can be supplied here after sign-in is implemented.
 let preferredTarget=resolveLanguage({userPreference:null,linkLanguage:params.get('lang'),savedPreference:savedLanguage,browserLanguages:navigator.languages||[navigator.language]}),searchRun=0;
 function chooseLanguage(target){preferredTarget=target;try{localStorage.setItem('slowread:preferred-language',target)}catch{}$('preferredLanguage').value=target;$('languageLabel').textContent=target==='en'?'English':'中文';$('languageMenu').open=false;$('targetLanguage').value=target;const url=new URL(location.href);url.searchParams.set('lang',target);history.replaceState(null,'',url)}
@@ -50,10 +51,10 @@ $('readOriginal').onclick=()=>{stop();$('translationProgress').hidden=true;reade
 $('switchOriginal').onclick=$('readOriginal').onclick;$('targetLanguage').onchange=()=>{chooseLanguage($('targetLanguage').value);openChapter(selectedChapter)};
 $('preferredLanguage').value=preferredTarget;
 $('languageLabel').textContent=preferredTarget==='en'?'English':'中文';
-$('openRequest').onclick=()=>{$('requestTitle').value=$('query').value.trim();$('requestDialog').showModal()};
+$('openRequest').onclick=()=>{$('requestTitle').value=$('query').value.trim();$('requestStatus').textContent=siteUser?'':'请先登录后再提交找书请求';const button=$('requestForm').querySelector('button[type=submit]');button.hidden=false;button.disabled=!siteUser;$('requestDialog').showModal()};
 $('closeRequest').onclick=()=>$('requestDialog').close();
-$('requestForm').onsubmit=e=>{e.preventDefault();const url=requestIssueUrl({title:$('requestTitle').value,author:$('requestAuthor').value,language:preferredTarget,notes:$('requestNotes').value});location.assign(url);};
-async function initLogin(){try{const [providers,me]=await Promise.all([api('/auth/providers'),api('/me')]);if(me.user){const button=node('button',me.user.name+' · 退出');button.onclick=async()=>{await api('/auth/logout',{method:'POST'}).catch(()=>{});location.reload()};document.querySelector('.header-actions').append(button)}else if(providers.github){const button=node('button','GitHub 登录');button.onclick=()=>location.assign('/api/auth/github/start');document.querySelector('.header-actions').append(button)}}catch{}}
+$('requestForm').onsubmit=async e=>{e.preventDefault();if(!siteUser){$('requestStatus').textContent='请先登录后再提交找书请求';return}const data={title:$('requestTitle').value,author:$('requestAuthor').value,language:preferredTarget,notes:$('requestNotes').value};const button=$('requestForm').querySelector('button[type=submit]');button.disabled=true;$('requestStatus').textContent='正在提交…';try{const result=await api('/requests',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});$('requestStatus').replaceChildren(node('span',`找书请求已提交。`));$('requestStatus').append(node('span',' 我们会查找可用版本，请稍后在书库搜索。'));button.hidden=true;}catch(err){$('requestStatus').textContent=err.message;button.disabled=false;}};
+async function initLogin(){try{const [providers,me]=await Promise.all([api('/auth/providers'),api('/me')]);siteUser=me.user;if(me.user){const button=node('button',me.user.name+' · 退出');button.onclick=async()=>{await fetch('/api/auth/logout',{method:'POST'});location.reload()};document.querySelector('.header-actions').append(button);}else if(providers.github){const button=node('button','GitHub 登录');button.onclick=()=>location.assign('/api/auth/github/start');document.querySelector('.header-actions').append(button)}}catch{}}
 initLogin();
 $('preferredLanguage').onchange=()=>{chooseLanguage($('preferredLanguage').value);if(!$('library').hidden)search();else if(!$('detail').hidden)openBook(selectedBook.id);else openChapter(selectedChapter)};
 $('search').onsubmit=e=>{e.preventDefault();search()};$('back').onclick=()=>{stop();show('library');history.replaceState(null,'','/');search()};$('toc').onclick=()=>{stop();$('resumeTranslation').hidden=true;openBook(selectedBook.id)};

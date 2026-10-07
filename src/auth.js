@@ -11,7 +11,7 @@ const getCookie=(request,name)=>request.headers.get('Cookie')?.split(';').map(s=
 const json=(value,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'no-store'}});
 export async function authRoute(request,env){
  const url=new URL(request.url),path=url.pathname;if(path!=='/api/me'&&!path.startsWith('/api/auth/'))return null;
- if(path==='/api/auth/providers')return json({github:configured(env),google:false,apple:false,x:false});
+ if(path==='/api/auth/providers')return json({github:configured(env),google:false,apple:false,x:false,bookRequests:env.BOOK_REQUESTS_ENABLED==='true'});
  if(path==='/api/me'){const session=await verifyCookie(getCookie(request,'__Host-slowread-session'),env);return json({user:session?{id:session.id,name:session.name,provider:'github'}:null})}
  if(path==='/api/auth/logout'){if(request.method!=='POST'||request.headers.get('Origin')!==url.origin)return json({error:'Invalid request'},403);return new Response(null,{status:204,headers:{'Set-Cookie':cookie('__Host-slowread-session','',0),'Cache-Control':'no-store'}})}
  if(request.method!=='GET')return json({error:'Method not allowed'},405);
