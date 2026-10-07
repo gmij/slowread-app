@@ -1,3 +1,4 @@
+import {originalResponse} from './book-response.js';
 import {searchBooks,loadBook} from './importer.js';
 import original from './sample/original.json';
 import translation from './sample/zh.json';
@@ -41,9 +42,9 @@ export default {async fetch(request,env){
   const book=await loadBook(m[1]);if(!m[2]){const {sections,...details}=book;return json(details);}
   const c=book.sections.find(c=>c.id===m[2]);if(!c)return json({error:'Chapter not found'},404);
   const target=url.searchParams.get('target')||'zh-CN';if(target!=='en'&&!languages[target])return json({error:'Language not supported'},400);
-  if(target===(book.sourceLanguage||'en'))return json({bookId:book.id,id:c.id,title:c.title,language:book.sourceLanguage||'en',sourceLanguage:book.sourceLanguage||'en',paragraphs:c.paragraphs.map(p=>({id:p.id,en:p.text})),source:book.source});
+  if(target===(book.sourceLanguage||'en'))return json(originalResponse(book,c));
   const shared=await readShared(book,c,target,env);if(shared)return json({...shared,sourceLanguage:book.sourceLanguage||'en'});
   if(target==='zh-CN'&&book.number===1342&&c.id==='01')return json({bookId:book.id,id:c.id,title:c.title,language:'zh-CN',paragraphs:original.paragraphs.map((p,i)=>({id:p.id,en:p.text,zh:translation.paragraphs[i].text})),source:book.source});
-  return json({bookId:book.id,id:c.id,title:c.title,language:'en',paragraphs:c.paragraphs.map(p=>({id:p.id,en:p.text})),source:book.source});
+  return json(originalResponse(book,c));
  }catch(e){return json({error:['TimeoutError','AbortError'].includes(e.name)?'书源连接超时，请稍后重试。':e.message||'书源暂时不可用，请稍后重试。'},503);}
 }};
