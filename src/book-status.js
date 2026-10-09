@@ -17,3 +17,8 @@ export async function bookStatus(book,target,env){
  const completed=chapters.filter(c=>c.translated).length,total=chapters.length,unit=book.sections.some(c=>c.title?.startsWith('阅读分节'))?'节':'章';
  return {target,sourceLanguage:book.sourceLanguage||'en',original,totalChapters:total,translatedChapters:completed,percent:total?Math.round(completed/total*100):0,unit,chapters,updatedAt:new Date().toISOString(),basis:original?'原文完整可读':unit==='节'?'按完整阅读分节计算，未完成段落不计入':'按已保存的完整章节计算，未完成段落不计入',readers:null,shares:null,statisticsNotice:'读者和分享统计尚未接入'};
 }
+
+export async function sharedTranslationIndex(target,env){
+ const books={};if(env.CONTENT_REPO){for(const path of await translationPaths(env)){const match=path.match(/^books\/(gutenberg-\d+)\/translations\/([^/]+)\/(\d{2,4})-[^/]+\.json$/);if(match&&match[2]===target){books[match[1]]??=[];if(!books[match[1]].includes(match[3]))books[match[1]].push(match[3])}}}
+ if(target==='zh-CN'){books['gutenberg-1342']??=[];if(!books['gutenberg-1342'].includes('01'))books['gutenberg-1342'].push('01')}return {books};
+}

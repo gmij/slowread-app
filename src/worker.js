@@ -1,3 +1,4 @@
+import {browseSource,recommendations} from './source-catalog.js';
 import {originalResponse} from './book-response.js';
 import {preferencesRoute} from './reading-preferences.js';
 import {learningRoute} from './learning.js';
@@ -13,7 +14,7 @@ import translation from './sample/zh.json';
 import {quote,translateParagraph,languages,TRANSLATION_ENGINE_VERSION} from './translator.js';
 import {readShared,saveShared,receipt,sourceHash} from './shared-library.js';
 export {TranslationCoordinator} from './translation-coordinator.js';
-import {bookStatus,invalidateBookStatus} from './book-status.js';
+import {bookStatus,invalidateBookStatus,sharedTranslationIndex} from './book-status.js';
 import {authRoute} from './auth.js';
 import {createBookRequest} from './book-requests.js';
 const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'private, max-age=60'}});
@@ -45,6 +46,9 @@ export default {async fetch(request,env){
    let result;if(shared)result={text:shared.paragraphs[input.index].zh,cached:true};else{const response=await env.TRANSLATIONS.get(env.TRANSLATIONS.idFromName('global-v1')).fetch('https://translation.internal/translate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:chapter.paragraphs[input.index].text,target:input.target,sourceLanguage:book.sourceLanguage||'en'})});if(!response.ok)return response;result=await response.json();}
    return Response.json({index:input.index,id:chapter.paragraphs[input.index].id,...result,...await receipt(book,chapter,input.target,input.index,result.text,env)},{headers:{'Cache-Control':'no-store'}});
   }
+  if(url.pathname==='/api/library-recommendations')return json({books:recommendations});
+  if(url.pathname==='/api/library-catalog')return json(await browseSource(url.searchParams));
+  if(url.pathname==='/api/library-translations'){const target=url.searchParams.get('target')||'zh-CN';if(!['zh-CN','en'].includes(target))return json({error:'Language not supported'},400);return json(await sharedTranslationIndex(target,env));}
   if(url.pathname==='/api/library-summary')return json(await catalogSummary(env));
   if(url.pathname==='/api/books')return json(await smartSearch((url.searchParams.get('q')||'').trim().slice(0,200),env));
   const statusMatch=url.pathname.match(/^\/api\/books\/(gutenberg-[1-9]\d{0,6})\/status$/);
