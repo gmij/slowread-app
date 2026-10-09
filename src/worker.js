@@ -5,6 +5,7 @@ import {bookshelfRoute} from './bookshelf.js';
 import {BOOKSHELF_SCHEMA_VERSION} from './bookshelf-data.js';
 export {UserBookshelf} from './bookshelf.js';
 export {UserAccount} from './accounts.js';
+import {clearCatalog} from './library-catalog.js';
 import {smartSearch} from './search-intent.js';
 import {searchBooks,loadBook} from './importer.js';
 import original from './sample/original.json';
@@ -37,7 +38,7 @@ export default {async fetch(request,env){
    if(Number(request.headers.get('Content-Length')||0)>(action[3]==='save'?500000:2048))return json({error:'Request too large'},413);
    const body=await request.text();if(body.length>(action[3]==='save'?500000:2048))return json({error:'Request too large'},413);
    const input=JSON.parse(body);if(!languages[input.target]||input.confirmed!==true)return json({error:'请先确认语言与本章费用'},400);
-   if(action[3]==='save'){const saved=await saveShared(book,chapter,input.target,input.rows,env);invalidateBookStatus();return json(saved);}
+   if(action[3]==='save'){const saved=await saveShared(book,chapter,input.target,input.rows,env);invalidateBookStatus();clearCatalog();return json(saved);}
    if(!Number.isInteger(input.index)||input.index<0||input.index>=chapter.paragraphs.length)return json({error:'段落不存在'},400);
    if(chapter.paragraphs.reduce((n,p)=>n+p.text.length,0)>50000)return json({error:'此章超出试用长度上限，可以阅读原文。'},413);
    const shared=await readShared(book,chapter,input.target,env);
