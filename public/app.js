@@ -59,7 +59,7 @@ async function openChapter(id,{position,target=readingPreferences.current().lang
   $('targetLanguage').value=target;
   const saved=readSaved(target);if(target===originalLanguage()){readerVisible();render([],true);$('readingStatus').textContent=target==='zh-CN'?'正在免费阅读中文原文，保留来源版本的文字。':'正在免费阅读英文原文。'}else if(data.language===target&&data.paragraphs.every(p=>typeof p.zh==='string'&&p.zh.trim())){readerVisible();render(data.paragraphs.map(p=>p.zh));$('readingStatus').textContent=data.shared?'已读取共享书库译文，无需重新翻译。':'译文已准备好，可以直接阅读。'}else{$('languageChoice').hidden=false;const words=data.paragraphs.reduce((n,p)=>n+(p.en.match(/\S+/g)||[]).length,0);$('translationSize').textContent=`翻译范围：仅当前章节，约 ${originalLanguage()==='zh-CN'?data.paragraphs.reduce((n,p)=>n+p.en.length,0).toLocaleString()+' 个原文字':words.toLocaleString()+' 个原文单词'}，共 ${data.paragraphs.length} 段。`;$('readingStatus').textContent=saved.filter(Boolean).length?'已有译文进度，确认后可继续翻译或提交共享书库。':'请选择目标语言，或免费阅读原文。';await updateQuote();}
   if(run!==translationRun)return;
-  if(!$('text').hidden){const bookmark=position||savedPosition();record(bookmark||'p1');restorePosition(bookmark)}
+  const bookmark=position||savedPosition();record(bookmark||chapterData.paragraphs[0]?.id||'p1');await syncReading();if(!$('text').hidden)restorePosition(bookmark)
   readingPreferences.prompt();
  }catch(e){if(run!==translationRun)return;$('chapterTitle').textContent='正文暂时无法打开';$('readingStatus').textContent=e.message;$('retryChapter').hidden=false}
 }
