@@ -41,6 +41,8 @@ GitHub Actions（slowread-library）
 Cloudflare Worker 读 manifest → 读取所需分片
 ```
 
+同步脚本在应用源码库的 `scripts/sync_catalog.py` 维护，执行副本位于内容仓库的 `scripts/`；修改同步逻辑时需更新两处，并运行 Actions 验证。
+
 官方 CSV 每周更新，官方 RDF 每日更新。RSS 是近期新增/修改窗口，可能漏掉停机期间的变化，周全量同步负责校验补齐，不承诺实时。字段缺失、网络失败、记录数异常下降都会中止发布，网站继续使用之前成功的版本。每日任务串行，发布遇到读者保存译文产生的新提交时先 rebase 后重试，保留译文和索引提交。
 
 `manifest` 提供 schema/version、最近成功同步时间、记录数量、同步方式、Provider 状态。失败记录由 Actions 日志和任务状态保存。只保留当前和上一版目录，历史 Git 提交可回滚；不能把执行失败误报为同步成功。
