@@ -1,3 +1,4 @@
+import {runtimeLimit} from './runtime-limits.js';
 import {validAccountId,normalizeEmail} from './identity.js';
 import {mailConfigured,sendVerificationEmail} from './mail.js';
 const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
@@ -22,7 +23,7 @@ export class UserAccount {
   }
   if(path==='/reserve-mail'){
    const day=new Date(now).toISOString().slice(0,10),month=day.slice(0,7);let accepted=false;
-   await this.storage.transaction(async tx=>{const v=await tx.get('quota')||{};if(v.day!==day){v.day=day;v.daily=0}if(v.month!==month){v.month=month;v.monthly=0}if(v.daily<90&&v.monthly<2800){v.daily++;v.monthly++;accepted=true;await tx.put('quota',v)}});
+   await this.storage.transaction(async tx=>{const v=await tx.get('quota')||{};if(v.day!==day){v.day=day;v.daily=0}if(v.month!==month){v.month=month;v.monthly=0}if(v.daily<runtimeLimit(this.env,'EMAIL_DAILY_LIMIT')&&v.monthly<runtimeLimit(this.env,'EMAIL_MONTHLY_LIMIT')){v.daily++;v.monthly++;accepted=true;await tx.put('quota',v)}});
    return accepted?json({ok:true}):json({error:'今日邮箱验证名额已用完，请稍后再试'},429);
   }
   if(!validAccountId(input.id))return json({error:'账号无效'},400);
@@ -30,8 +31,8 @@ export class UserAccount {
    if(!mailConfigured(this.env))return json({error:'邮箱验证服务尚未配置'},503);
    const email=normalizeEmail(input.email)||'';
    if(email.length>254||!/^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(email))return json({error:'请填写有效邮箱'},400);
-   let accepted=false;await this.storage.transaction(async tx=>{const day=new Date(now).toISOString().slice(0,10),v=await tx.get('send-limit')||{};if(v.day!==day){v.day=day;v.count=0}if((v.last||0)+60000<=now&&v.count<3){v.count++;v.last=now;accepted=true;await tx.put('send-limit',v)}});
-   if(!accepted)return json({error:'请间隔一分钟重发，每个账号每天最多三次'},429);
+   let accepted=false;await this.storage.transaction(async tx=>{const day=new Date(now).toISOString().slice(0,10),v=await tx.get('send-limit')||{};if(v.day!==day){v.day=day;v.count=0}if((v.last||0)+60000<=now&&v.count<runtimeLimit(this.env,'EMAIL_ACCOUNT_DAILY_LIMIT')){v.count++;v.last=now;accepted=true;await tx.put('send-limit',v)}});
+   if(!accepted)return json({error:`请间隔一分钟重发，每个账号每天最多${runtimeLimit(this.env,'EMAIL_ACCOUNT_DAILY_LIMIT')}次`},429);
    const quota=await this.env.ACCOUNTS.get(this.env.ACCOUNTS.idFromName('mail-quota-v1')).fetch('https://account.internal/reserve-mail',{method:'POST',body:'{}'});if(!quota.ok)return quota;
    let n;do{n=crypto.getRandomValues(new Uint32Array(1))[0]}while(n>=4294000000);const code=String(n%1000000).padStart(6,'0'),challenge=crypto.randomUUID();
    await this.storage.put('challenge',{email,hash:await digest(input.id+':'+email+':'+code,this.env),expires:now+600000,tries:0,challenge,sent:false});

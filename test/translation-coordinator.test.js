@@ -38,3 +38,16 @@ test('distinct concurrent jobs are bounded and quota exhaustion is explicit',asy
 });
 
 test('learning entitlements expose account limits and distinguish personal from shared exhaustion',async()=>{const day=new Date().toISOString().slice(0,10),client='b'.repeat(64),values=new Map([['learning:'+client,{day,count:50}]]);const st=state(values),o=new TranslationCoordinator(st,{TRANSLATION_DAILY_CHARACTERS:'10000',AI:{run:async()=>({response:'翻译：需要'})}});await st.ready;const lookup=scope=>new Request('https://translation.internal/explain',{method:'POST',body:JSON.stringify({selection:'want',context:'want',target:'zh-CN',client,scope})});let response=await o.fetch(lookup('guest'));assert.equal(response.status,429);assert.equal((await response.json()).code,'LEARNING_QUOTA_EXHAUSTED');response=await o.fetch(lookup('account'));assert.equal(response.status,200);const status=await(await o.fetch(new Request('https://translation.internal/learning-status',{method:'POST',body:JSON.stringify({client,scope:'account'})}))).json();assert.equal(status.limit,200);assert.equal(status.used,51);assert.equal(status.remaining,149);assert.match(status.resetAt,/T00:00:00/);const zero=state(),empty=new TranslationCoordinator(zero,{TRANSLATION_DAILY_CHARACTERS:'0'});await zero.ready;assert.equal((await(await empty.fetch(lookup('account'))).json()).code,'SHARED_QUOTA_EXHAUSTED')});
+
+
+test('Worker quota variables change enforcement and displayed rights without resetting usage',async()=>{
+ const day=new Date().toISOString().slice(0,10),client='c'.repeat(64),st=state(new Map([['budget',{day,used:75}],['learning:'+client,{day,count:2}]]));
+ const env={TRANSLATION_DAILY_CHARACTERS:'150',LEARNING_GUEST_DAILY_LIMIT:'2',LEARNING_ACCOUNT_DAILY_LIMIT:'7',TRANSLATION_MAX_CONCURRENT:'1',AI:{run:async()=>({response:'翻译：需要'})}};
+ const o=new TranslationCoordinator(st,env);await st.ready;
+ const status=async scope=>(await o.fetch(new Request('https://translation.internal/learning-status',{method:'POST',body:JSON.stringify({client,scope})}))).json();
+ let rights=await status('guest');assert.equal(rights.used,2);assert.equal(rights.limit,2);assert.equal(rights.accountLimit,7);assert.equal(rights.sharedRemaining,75);
+ const lookup=scope=>new Request('https://translation.internal/explain',{method:'POST',body:JSON.stringify({selection:'want',context:'want',target:'zh-CN',client,scope})});
+ assert.equal((await o.fetch(lookup('guest'))).status,429);assert.equal((await o.fetch(lookup('account'))).status,200);
+ env.LEARNING_ACCOUNT_DAILY_LIMIT='0';assert.equal((await status('account')).limit,0);assert.equal((await status('account')).used,3);
+ env.TRANSLATION_DAILY_CHARACTERS='invalid';await assert.rejects(status('account'),/配置无效/);
+});

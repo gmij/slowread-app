@@ -14,3 +14,23 @@ GET /api/entitlements 从服务端验证会话确定身份，客户端不能指�
 六倍来自当日观察：旧10万字符预算接近耗尽时，账号Workers AI统计为约1178.48 Neurons。请求结构相近时，六倍规模约7071 Neurons，七倍约8249 Neurons，故六倍比七倍更保守。该估算使用账号级混合请求，不能精确归因到应用，也不能保证新请求耗费线性相同。
 
 这次是字符预算扩容，不是已经实现8000 Neurons硬上限。完整提示词、输出token、请求类型及模型变化会影响实际消耗。Cloudflare账号每日10000 Neurons免费额度仍独立生效；需要继续观察官方统计，未来实际token预算预留及结算另行实施。本次不升级套餐，不启用超额付费。
+
+
+## Worker运行时环境变量
+
+以下普通环境变量在Cloudflare → Workers & Pages → slowread-app → Settings → Variables and Secrets管理：
+
+| 变量 | 当前值 | 含义 |
+| --- | --- | --- |
+| TRANSLATION_DAILY_CHARACTERS | 600000 | 全站每日新推理字符预算 |
+| LEARNING_GUEST_DAILY_LIMIT | 50 | 游客网络每日学习解释次数 |
+| LEARNING_ACCOUNT_DAILY_LIMIT | 200 | 已验证账号每日学习解释次数 |
+| TRANSLATION_MAX_CONCURRENT | 2 | 全站新推理并发数 |
+| SEARCH_INTENT_BUDGET_CHARACTERS | 1000 | 一次智能搜索识别预扣字符预算 |
+| EMAIL_DAILY_LIMIT | 90 | 全站每日邮件发送上限 |
+| EMAIL_MONTHLY_LIMIT | 2800 | 全站每月邮件发送上限 |
+| EMAIL_ACCOUNT_DAILY_LIMIT | 3 | 每账号/邮箱每日验证码发送上限 |
+
+个人中心及额度耗尽提示从服务端读取配置。值必须为非负整数；0表示停用对应额度/并发，非法值拒绝请求，不放开预算。代码保留统一默认值供本地开发及缺失配置时使用。
+
+这些变量不再写在Wrangler的vars中；keep_vars=true确保GitHub自动部署保留控制台配置。控制台修改并部署后生效，不需要修改源码。修改上限不清空当天已有用量。密钥仍使用Secret，不作为普通变量。

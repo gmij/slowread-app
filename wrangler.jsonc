@@ -1,5 +1,6 @@
 {
   "name": "slowread-app",
+  "keep_vars": true,
   "main": "src/worker.js",
   "compatibility_date": "2026-10-07",
   "assets": {
@@ -14,8 +15,7 @@
     "CONTENT_REF": "main",
     "TRANSLATION_ENABLED": "true",
     "BOOK_REQUESTS_ENABLED": "true",
-    "BOOKSHELF_STORAGE": "durable-object",
-    "TRANSLATION_DAILY_CHARACTERS": "600000"
+    "BOOKSHELF_STORAGE": "durable-object"
   },
   "ai": {
     "binding": "AI"
