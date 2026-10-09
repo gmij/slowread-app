@@ -1,3 +1,5 @@
+import {canonicalMetadata} from './metadata-catalog.js';
+import {providers} from './providers.js';
 import {sourceDirectory} from './source-directory.js';
 import {readTranslationIndex,updateTranslationIndex} from './translation-index.js';
 import {browseSource,recommendations} from './source-catalog.js';
@@ -30,9 +32,9 @@ export default {async fetch(request,env){
  if(request.method!=='GET'&&!(request.method==='POST'&&['translate','save'].includes(action?.[3])))return json({error:'Method not allowed'},405);
  try{
   if(url.pathname==='/api/translation-status'){if(!env.TRANSLATIONS)return json({available:false,message:'翻译任务服务暂不可用'});return env.TRANSLATIONS.get(env.TRANSLATIONS.idFromName('global-v1')).fetch('https://translation.internal/status');}
-  if(url.pathname==='/api/health')return json({ok:true,authIntegrationVersion:1,mode:'source-import',bookshelfSchema:BOOKSHELF_SCHEMA_VERSION,bookshelfEnabled:!!env.BOOKSHELVES,translationEngine:TRANSLATION_ENGINE_VERSION,translationEnabled:env.TRANSLATION_ENABLED==='true'&&!!env.AI&&!!env.GITHUB_CONTENT_TOKEN&&!!env.TRANSLATIONS,sharedWritesEnabled:!!env.GITHUB_CONTENT_TOKEN});
+  if(url.pathname==='/api/health')return json({ok:true,authIntegrationVersion:1,mode:'provider-index',catalogSchema:1,bookshelfSchema:BOOKSHELF_SCHEMA_VERSION,bookshelfEnabled:!!env.BOOKSHELVES,translationEngine:TRANSLATION_ENGINE_VERSION,translationEnabled:env.TRANSLATION_ENABLED==='true'&&!!env.AI&&!!env.GITHUB_CONTENT_TOKEN&&!!env.TRANSLATIONS,sharedWritesEnabled:!!env.GITHUB_CONTENT_TOKEN});
   if(action){
-   const book=await loadBook(action[1]);const chapter=book.sections.find(c=>c.id===action[2]);if(!chapter)return json({error:'Chapter not found'},404);
+   const book=await loadBook(action[1],env);const chapter=book.sections.find(c=>c.id===action[2]);if(!chapter)return json({error:'Chapter not found'},404);
    const enabled=env.TRANSLATION_ENABLED==='true'&&!!env.AI&&!!env.GITHUB_CONTENT_TOKEN&&!!env.TRANSLATIONS;
    if(action[3]==='quote'&&(url.searchParams.get('target')!=='zh-CN'||book.sourceLanguage==='zh-CN'))return json({error:'本站仅支持外文译为中文，中文书籍请直接阅读原文'},400);
    if(action[3]==='quote')return json({...quote(chapter.paragraphs,url.searchParams.get('target')||'zh-CN',enabled),sourceHash:await sourceHash(chapter)});
@@ -49,16 +51,18 @@ export default {async fetch(request,env){
    let result;if(shared)result={text:shared.paragraphs[input.index].zh,cached:true};else{const response=await env.TRANSLATIONS.get(env.TRANSLATIONS.idFromName('global-v1')).fetch('https://translation.internal/translate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:chapter.paragraphs[input.index].text,target:input.target,sourceLanguage:book.sourceLanguage||'en'})});if(!response.ok)return response;result=await response.json();}
    return Response.json({index:input.index,id:chapter.paragraphs[input.index].id,...result,...await receipt(book,chapter,input.target,input.index,result.text,env)},{headers:{'Cache-Control':'no-store'}});
   }
-  if(url.pathname==='/api/library-directory')return json(await sourceDirectory(url.searchParams));
+  const canonicalMatch=url.pathname.match(/^\/api\/library-books\/(bk_[a-f0-9]{24})$/);if(canonicalMatch)return json(await canonicalMetadata(canonicalMatch[1],env));
+  if(url.pathname==='/api/providers')return json({providers});
+  if(url.pathname==='/api/library-directory')return json(await sourceDirectory(url.searchParams,env));
   if(url.pathname==='/api/library-recommendations')return json({books:recommendations});
-  if(url.pathname==='/api/library-catalog')return json(await browseSource(url.searchParams));
+  if(url.pathname==='/api/library-catalog')return json(await browseSource(url.searchParams,env));
   if(url.pathname==='/api/library-translations'){const index=await readTranslationIndex(env);return json({books:Object.fromEntries(index.books.map(b=>[b.id,b.chapters.map(c=>c.id)])),entries:index.books,updatedAt:index.updatedAt});}
   if(url.pathname==='/api/library-summary')return json(await catalogSummary(env));
   if(url.pathname==='/api/books')return json(await smartSearch((url.searchParams.get('q')||'').trim().slice(0,200),env));
   const statusMatch=url.pathname.match(/^\/api\/books\/(gutenberg-[1-9]\d{0,6})\/status$/);
-  if(statusMatch){const target=url.searchParams.get('target')||'zh-CN';if(target!=='en'&&!languages[target])return json({error:'Language not supported'},400);return json(await bookStatus(await loadBook(statusMatch[1]),target,env));}
+  if(statusMatch){const target=url.searchParams.get('target')||'zh-CN';if(target!=='en'&&!languages[target])return json({error:'Language not supported'},400);return json(await bookStatus(await loadBook(statusMatch[1],env),target,env));}
   const m=url.pathname.match(/^\/api\/books\/(gutenberg-[1-9]\d{0,6})(?:\/chapters\/(\d{2,4}))?$/);if(!m)return json({error:'Not found'},404);
-  const book=await loadBook(m[1]);if(!m[2]){const {sections,...details}=book;return json(details);}
+  const book=await loadBook(m[1],env);if(!m[2]){const {sections,...details}=book;return json(details);}
   const c=book.sections.find(c=>c.id===m[2]);if(!c)return json({error:'Chapter not found'},404);
   const target=url.searchParams.get('target')||'zh-CN';if(target!=='zh-CN'&&target!==(book.sourceLanguage||'en'))return json({error:'Language not supported'},400);
   if(target===(book.sourceLanguage||'en'))return json(originalResponse(book,c));

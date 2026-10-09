@@ -17,6 +17,7 @@ const aliases=[
 export function aliasIntent(query){return aliases.find(x=>x.match.test(query))}
 export function parseIntent(raw){try{const value=JSON.parse(raw.replace(/^```(?:json)?\s*|\s*```$/g,''));return Array.isArray(value.queries)?value.queries.filter(q=>typeof q==='string'&&q.trim()&&q.length<=120).slice(0,2):[]}catch{return []}}
 export async function smartSearch(query,env={},search=searchBooks){
+ if(search===searchBooks)search=q=>searchBooks(q,env);
  if(!query)return {books:await sharedCatalog(env),searchScope:'共享书库'};
  const alias=aliasIntent(query);if(alias){const result=await search(alias.query);return {...result,interpretedAs:alias.label,searchHint:`按“${alias.label}”查找，结果可能包含收录该故事的作品集。`}}
  const direct=await search(query);if(direct.books.length||!env.TRANSLATIONS||!env.AI||env.TRANSLATION_ENABLED!=='true')return direct;

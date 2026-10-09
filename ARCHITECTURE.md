@@ -149,3 +149,6 @@ Google 激励广告不允许直接以现金作为观看奖励。看广告获得�
 增加 Google、Apple 第三方身份认证。稳定 provider:sub 用于隔离书架，联系邮箱通过六位验证码验证后保存在独立 UserAccount Durable Object；不采集头像或保存第三方访问令牌，不把邮箱放入公共书库或 GitHub Issue。不同登录来源不按邮箱自动合并。
 
 发信采用 Resend 免费层，使用每日/月度硬上限控制验证码发送。Cloudflare 原生 Email Service 对任意收件人发信需要付费 Workers 资格，暂不为此升级。平台配置、Apple 私密邮箱投递要求和验证步骤见 [AUTH_SETUP.md](AUTH_SETUP.md)。代码接入与真实外部账号开通分开验收；求书完成后的邮件通知尚需接入私有归因与通知流程。
+
+## 书源、供应商与元数据索引
+详见 [CATALOG_ARCHITECTURE.md](CATALOG_ARCHITECTURE.md)。

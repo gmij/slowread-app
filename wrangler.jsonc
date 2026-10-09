@@ -10,7 +10,7 @@
     ]
   },
   "vars": {
-    "CONTENT_REPO": "gmij/slowread-library",
+    "METADATA_REPO": "gmij/slowread-library", "METADATA_REF": "main", "CONTENT_REPO": "gmij/slowread-library",
     "CONTENT_REF": "main",
     "TRANSLATION_ENABLED": "true",
     "BOOK_REQUESTS_ENABLED": "true",

@@ -1,6 +1,6 @@
 import {knownBooks,describe,sourceMetadata} from './importer.js';
 let cached=null,pending=null,summaryCache=null;
-export function clearCatalog(){cached=null;summaryCache=null}
+export function clearCatalog(){cached=null;summaryCache=null;clearMetadataCache()}
 export async function sharedCatalog(env,metadata=sourceMetadata){
  if(!env.CONTENT_REPO)return knownBooks.map(describe);
  if(cached?.repo===env.CONTENT_REPO&&cached.expires>Date.now())return cached.books;
@@ -12,8 +12,5 @@ export function parseSourceCount(html){
  const value=html.match(/Project Gutenberg offers ([\d,]+) free eBooks/i)?.[1];
  const count=Number(value?.replaceAll(',',''));if(!Number.isSafeInteger(count)||count<1)throw Error('书源藏书数量暂时无法读取');return count;
 }
-export async function catalogSummary(){
- if(summaryCache&&summaryCache.expires>Date.now())return summaryCache.value;
- const r=await fetch('https://www.gutenberg.org/ebooks/search/?query=',{signal:AbortSignal.timeout(8000)});if(!r.ok)throw Error('书源藏书数量暂时无法读取');
- const value={totalBooks:parseSourceCount(await r.text()),source:'Project Gutenberg',scope:'source-catalog'};summaryCache={value,expires:Date.now()+86400000};return value;
-}
+import {catalogManifest,clearMetadataCache} from './catalog-store.js';
+export async function catalogSummary(env){const m=await catalogManifest(env);return {totalBooks:m.totalBooks,canonicalBooks:m.canonicalBooks,source:'Project Gutenberg',scope:'source-catalog',indexedAt:m.syncedAt,providers:m.providers}}

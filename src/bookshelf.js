@@ -23,8 +23,8 @@ export async function bookshelfRoute(request,env,loader=loadBook,storeFactory=cr
  const text=await request.text();if(text.length>2048)return json({error:'阅读记录过长'},413);
  let input;try{input=JSON.parse(text)}catch{return json({error:'阅读记录无效'},400)}
  if(!input||!/^gutenberg-[1-9]\d{0,6}$/.test(input.book)||!/^\d{2,4}$/.test(input.chapter)||!/^p[1-9]\d{0,5}$/.test(input.position)||!['en','zh-CN'].includes(input.language))return json({error:'阅读记录无效'},400);
- const book=await loader(input.book),chapter=book.sections.find(c=>c.id===input.chapter);
+ const book=await loader(input.book,env),chapter=book.sections.find(c=>c.id===input.chapter);
  if(!chapter||!chapter.paragraphs.some(p=>p.id===input.position))return json({error:'章节或段落不存在'},400);
- await store.upsert(session.id,{book:book.id,title:book.title,author:book.author,chapter:chapter.id,chapterTitle:chapter.title,position:input.position,language:input.language,updatedAt:Date.now()});
+ await store.upsert(session.id,{book:book.id,...(book.canonicalId?{canonicalId:book.canonicalId,sourceEditionId:book.sourceEditionId}:{}),title:book.title,author:book.author,chapter:chapter.id,chapterTitle:chapter.title,position:input.position,language:input.language,updatedAt:Date.now()});
  return json({saved:true});
 }
