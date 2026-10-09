@@ -8,12 +8,12 @@ export function parseCatalogPage(html,page,language){
  return {books,page,hasNext:[...html.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)].some(m=>/\bNext\b/i.test(clean(m[2]))&&Number(m[1].match(/start_index=(\d+)/)?.[1])>(page-1)*25+1)};
 }
 export async function browseSource(input){
- const page=Number(input.get('page')||1),language=input.get('language')||'',category=input.get('category')||'all',author=(input.get('author')||'').trim();
- if(!Number.isInteger(page)||page<1||page>10000||!['','en','zh','fr','de','es'].includes(language)||!Object.hasOwn(topics,category)||author.length>80)throw Error('目录筛选条件无效');
- const query=[language?'l.'+language:'',topics[category],author?'a.'+author.replace(/[\x00-\x1f]/g,''):''].filter(Boolean).join(' '),key=JSON.stringify([page,query]);
+ const page=Number(input.get('page')||1),language=input.get('language')||'',category=input.get('category')||'all',author=(input.get('author')||'').trim(),shelf=input.get('shelf')||'',authorId=input.get('author_id')||'';
+ if(!Number.isInteger(page)||page<1||page>10000||!['','en','zh','fr','de','es'].includes(language)||!Object.hasOwn(topics,category)||author.length>80||(shelf&&!/^[1-9]\d{0,5}$/.test(shelf))||(authorId&&!/^[1-9]\d{0,5}$/.test(authorId)))throw Error('目录筛选条件无效');
+ const query=[language?'l.'+language:'',topics[category],author?'a.'+author.replace(/[\x00-\x1f]/g,''):''].filter(Boolean).join(' '),key=JSON.stringify([page,query,shelf,authorId]);
  const saved=cache.get(key);if(saved?.expires>Date.now())return saved.value;
- const url=new URL('https://www.gutenberg.org/ebooks/search/');url.searchParams.set('query',query);url.searchParams.set('start_index',String((page-1)*25+1));
- const response=await fetch(url,{signal:AbortSignal.timeout(12000)});if(!response.ok)throw Error('书源目录暂时不可用，请稍后重试');const value=parseCatalogPage(await response.text(),page,language);
+ const url=new URL(shelf?`https://www.gutenberg.org/ebooks/bookshelf/${shelf}`:authorId?`https://www.gutenberg.org/ebooks/author/${authorId}`:'https://www.gutenberg.org/ebooks/search/');url.searchParams.set('query',query);url.searchParams.set('start_index',String((page-1)*25+1));
+ const response=await fetch(url,{signal:AbortSignal.timeout(12000)});if(!response.ok)throw Error('书源目录暂时不可用，请稍后重试');const html=await response.text(),value={...parseCatalogPage(html,page,language),listTitle:clean(html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/)?.[1]||'')};
  if(cache.size>=50)cache.delete(cache.keys().next().value);cache.set(key,{value,expires:Date.now()+300000});return value;
 }
 export const recommendations=[

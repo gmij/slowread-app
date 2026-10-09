@@ -1,3 +1,4 @@
+import {sourceDirectory} from './source-directory.js';
 import {readTranslationIndex,updateTranslationIndex} from './translation-index.js';
 import {browseSource,recommendations} from './source-catalog.js';
 import {originalResponse} from './book-response.js';
@@ -48,6 +49,7 @@ export default {async fetch(request,env){
    let result;if(shared)result={text:shared.paragraphs[input.index].zh,cached:true};else{const response=await env.TRANSLATIONS.get(env.TRANSLATIONS.idFromName('global-v1')).fetch('https://translation.internal/translate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:chapter.paragraphs[input.index].text,target:input.target,sourceLanguage:book.sourceLanguage||'en'})});if(!response.ok)return response;result=await response.json();}
    return Response.json({index:input.index,id:chapter.paragraphs[input.index].id,...result,...await receipt(book,chapter,input.target,input.index,result.text,env)},{headers:{'Cache-Control':'no-store'}});
   }
+  if(url.pathname==='/api/library-directory')return json(await sourceDirectory(url.searchParams));
   if(url.pathname==='/api/library-recommendations')return json({books:recommendations});
   if(url.pathname==='/api/library-catalog')return json(await browseSource(url.searchParams));
   if(url.pathname==='/api/library-translations'){const index=await readTranslationIndex(env);return json({books:Object.fromEntries(index.books.map(b=>[b.id,b.chapters.map(c=>c.id)])),entries:index.books,updatedAt:index.updatedAt});}
