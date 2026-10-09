@@ -17,7 +17,7 @@ import {createBookRequest} from './book-requests.js';
 const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'private, max-age=60'}});
 export default {async fetch(request,env){
  const url=new URL(request.url);if(!url.pathname.startsWith('/api/'))return env.ASSETS.fetch(request);
- if(url.pathname==='/api/reading-preferences'||url.pathname==='/api/learning/explain'){try{return await (url.pathname==='/api/reading-preferences'?preferencesRoute:learningRoute)(request,env)}catch{return Response.json({error:'阅读服务暂时无法连接，请稍后重试'},{status:503,headers:{'Cache-Control':'no-store'}})}}
+ if(url.pathname==='/api/reading-preferences'||url.pathname==='/api/learning/explain'||url.pathname==='/api/entitlements'){try{return await (url.pathname==='/api/reading-preferences'?preferencesRoute:learningRoute)(request,env)}catch{return Response.json({error:'阅读服务暂时无法连接，请稍后重试'},{status:503,headers:{'Cache-Control':'no-store'}})}}
  if(url.pathname==='/api/bookshelf'){try{return await bookshelfRoute(request,env)}catch(error){console.error('Bookshelf service failure',error.message);return Response.json({error:'书架暂时无法同步，请稍后重试'},{status:503,headers:{'Cache-Control':'no-store'}})}}
  if(url.pathname==='/api/requests'){try{return await createBookRequest(request,env)}catch{return Response.json({error:'请求暂时无法提交'},{status:503})}}
  if(url.pathname==='/api/me'||url.pathname.startsWith('/api/auth/')){try{return await authRoute(request,env)}catch{return Response.json({error:'登录服务暂时不可用'},{status:503,headers:{'Cache-Control':'no-store'}})}}

@@ -1,7 +1,9 @@
 import {loadBook} from './importer.js';
+import {verifyCookie} from './auth.js';
 import {readShared} from './shared-library.js';
 const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
 export async function learningRoute(request,env,loader=loadBook,sharedReader=readShared){
+ if(new URL(request.url).pathname==='/api/entitlements'&&request.method==='GET'){const identity=await learningIdentity(request,env);if(!env.TRANSLATIONS)return json({error:'权益服务暂不可用'},503);return env.TRANSLATIONS.get(env.TRANSLATIONS.idFromName('global-v1')).fetch('https://translation.internal/learning-status',{method:'POST',body:JSON.stringify(identity)})}
  if(request.method!=='POST')return json({error:'Method not allowed'},405);
  if(request.headers.get('Origin')!==new URL(request.url).origin)return json({error:'请从阅读页面查词'},403);
  if(!env.TRANSLATIONS||!env.AI||env.TRANSLATION_ENABLED!=='true')return json({error:'语境解释暂未开放'},503);
@@ -12,6 +14,8 @@ export async function learningRoute(request,env,loader=loadBook,sharedReader=rea
  if(!p||!p.text.includes(input.selection))return json({error:'选中内容必须来自当前原文段落'},400);
  const at=p.text.indexOf(input.selection),context=p.text.length<=12000?p.text:p.text.slice(Math.max(0,at-5900),at+input.selection.length+5900);
  let reference='';if(env.CONTENT_REPO){try{const shared=await sharedReader(book,chapter,input.target,env);reference=shared?.paragraphs.find(row=>row.id===p.id)?.zh||''}catch{}}
- const ip=request.headers.get('CF-Connecting-IP')||'unknown';const hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(ip));const client=[...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,'0')).join('');
- return env.TRANSLATIONS.get(env.TRANSLATIONS.idFromName('global-v1')).fetch('https://translation.internal/explain',{method:'POST',body:JSON.stringify({selection:input.selection,context,reference,sourceLanguage:book.sourceLanguage||'en',target:input.target,client})});
+ const {client,scope}=await learningIdentity(request,env);
+ return env.TRANSLATIONS.get(env.TRANSLATIONS.idFromName('global-v1')).fetch('https://translation.internal/explain',{method:'POST',body:JSON.stringify({selection:input.selection,context,reference,sourceLanguage:book.sourceLanguage||'en',target:input.target,client,scope})});
 }
+
+async function learningIdentity(request,env){const raw=request.headers.get('Cookie')?.split(';').map(s=>s.trim()).find(s=>s.startsWith('__Host-slowread-session='))?.slice(24)||'';const session=await verifyCookie(raw,env);const scope=session?.id?'account':'guest';const identity=session?.id?'account:'+session.id:'guest:'+(request.headers.get('CF-Connecting-IP')||'unknown');const hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(identity));return {client:[...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,'0')).join(''),scope}}
