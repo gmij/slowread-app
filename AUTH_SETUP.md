@@ -46,3 +46,13 @@ wrangler.jsonc 新增 SQLite Durable Object UserAccount（ACCOUNTS），迁移 v
 - https://developers.google.com/identity/openid-connect/openid-connect
 - https://developer.apple.com/help/account/capabilities/configure-sign-in-with-apple-for-the-web/
 - https://developer.apple.com/help/account/capabilities/configure-private-email-relay-service/
+
+
+## 登录身份规则（2026-10-09）
+
+- GitHub OAuth 请求只读 `user:email` 权限，从 `/user/emails` 选取已验证邮箱，优先主邮箱。取得已验证邮箱即可获得正式用户权益，无需另发验证码；读取失败提示重新授权，未提供已验证邮箱时提示补充验证。
+- 旧会话需要重新登录以取得邮箱验证状态。GitHub 账号内部 ID 保持不变，已有书架保留。
+- 邮箱验证码登录支持 QQ、163 等常见邮箱，首次成功验证自动注册。完整邮箱去除首尾空格并按小写归一化，作为登录名；内部 ID 为带服务端密钥的摘要，邮箱不会进入书架路径或公开 Issue。
+- 发信未配置时，邮箱登录按钮停用并展示说明，不影响 GitHub 登录。启用现有 Resend 配置后开放邮箱注册、登录。
+- GitHub 已验证邮箱首次登记后，使用该邮箱验证码登录可复用 GitHub 账号的书架。已独立创建的不同历史账号不自动合并；邮箱归属记录不会被另一个账号覆盖。更换 GitHub 已验证邮箱时移除原邮箱登录关联。
+- 验证码十分钟有效，每邮箱每日最多三次发送，间隔一分钟；最多五次校验，成功后失效。保留全站每日90封、每月2800封发送上限。只在成功发信后允许校验并建立会话。

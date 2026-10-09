@@ -34,3 +34,32 @@ test('email OTP stores only digest, prevents replay, throttles sends and keeps m
  await storage.put('challenge',{email:'reader@example.com',sent:true,expires:1,tries:0});assert.equal((await post('verify',{code})).status,400);await objects.get('google:123').alarm();assert.equal(await storage.get('challenge'),undefined);
  }finally{globalThis.fetch=old}
 });
+
+import {signCookie,verifyCookie} from '../src/auth.js';
+import {finishLogin} from '../src/oauth-login.js';
+import {emailAccountId} from '../src/identity.js';
+function emailEnv(){const env={AUTH_SESSION_SECRET:'a'.repeat(40),EMAIL_PROVIDER:'resend',EMAIL_FROM:'test@example.com',RESEND_API_KEY:'test'},objects=new Map();env.ACCOUNTS={idFromName:id=>id,get:id=>{if(!objects.has(id))objects.set(id,new UserAccount({storage:new Storage()},env));return {fetch:(url,options)=>objects.get(id).fetch(new Request(url,options))}}};return {env,objects}}
+const sessionOf=async(r,env)=>verifyCookie(r.headers.get('Set-Cookie').split(';')[0].split('=')[1],env);
+test('anonymous email login requires delivered OTP, normalizes identity and rejects replay and cross-origin',async()=>{
+ const {env}=emailEnv(),old=globalThis.fetch;let code;
+ const post=(path,body,origin='https://slowread.test')=>authRoute(new Request('https://slowread.test/api/auth/email/'+path,{method:'POST',headers:{Origin:origin},body:JSON.stringify(body)}),env);
+ globalThis.fetch=async(url,options)=>{code=JSON.parse(options.body).text.match(/\d{6}/)[0];return Response.json({id:'mail'})};
+ try{assert.equal((await post('verify',{email:'reader@qq.com',code:'123456'})).status,400);assert.equal((await post('send',{email:' READER@QQ.COM '})).status,200);assert.equal((await post('verify',{email:'other@qq.com',code})).status,400);const r=await post('verify',{email:'reader@qq.com',code});assert.equal(r.status,200);const session=await sessionOf(r,env);assert.equal(session.provider,'email');assert.equal(session.name,'reader@qq.com');assert.equal(session.email,'reader@qq.com');assert.ok(session.emailVerifiedAt);assert.match(session.id,/^email:[a-f0-9]{64}$/);assert.equal((await post('verify',{email:'reader@qq.com',code})).status,400);assert.equal((await post('send',{email:'reader@qq.com'},'https://attacker.test')).status,403);
+ }finally{globalThis.fetch=old}
+});
+test('GitHub callback trusts only verified email and never sends another OTP',async()=>{
+ const {env}=emailEnv();Object.assign(env,{GITHUB_OAUTH_CLIENT_ID:'client',GITHUB_OAUTH_CLIENT_SECRET:'secret'});const old=globalThis.fetch;let mails=[{email:'wrong@qq.com',primary:true,verified:false},{email:'reader@qq.com',primary:false,verified:true}];
+ globalThis.fetch=async url=>url==='https://github.com/login/oauth/access_token'?Response.json({access_token:'token'}):url==='https://api.github.com/user'?Response.json({id:42,login:'reader'}):url==='https://api.github.com/user/emails'?Response.json(mails):assert.fail('unexpected send');
+ const callback=async()=>{const state=await signCookie({state:'state',verifier:'verifier',exp:Date.now()+60000},env);return authRoute(new Request('https://slowread.test/api/auth/github/callback?state=state&code=code',{headers:{Cookie:'__Host-slowread-oauth='+state}}),env)};
+ try{const r=await callback();assert.equal(r.headers.get('Location'),'/');const session=await sessionOf(r,env);assert.equal(session.id,'github:42');assert.equal(session.email,'reader@qq.com');assert.ok(session.emailVerifiedAt);mails=[];const fresh=emailEnv();Object.assign(fresh.env,{GITHUB_OAUTH_CLIENT_ID:'client',GITHUB_OAUTH_CLIENT_SECRET:'secret'});const pending=await finishLogin({id:'github:99',name:'reader',provider:'github'},fresh.env);assert.equal(pending.headers.get('Location'),'/?verify-email=1');assert.equal((await sessionOf(pending,fresh.env)).emailVerifiedAt,undefined);
+ }finally{globalThis.fetch=old}
+});
+test('email login reuses a previously verified GitHub account and changing GitHub email removes old link',async()=>{
+ const {env}=emailEnv();await finishLogin({id:'github:42',name:'reader',provider:'github',email:'reader@qq.com',emailVerifiedAt:Date.now()},env);
+ const id=await emailAccountId('reader@qq.com',env),stub=env.ACCOUNTS.get(id);let owner=await stub.fetch('https://account.internal/email-owner',{method:'POST',body:JSON.stringify({id})});assert.equal((await owner.json()).id,'github:42');
+ await finishLogin({id:'github:42',name:'reader',provider:'github',email:'new@163.com',emailVerifiedAt:Date.now()},env);owner=await stub.fetch('https://account.internal/email-owner',{method:'POST',body:'{}'});assert.equal((await owner.json()).id,null);
+});
+test('failed email delivery cannot issue a login session',async()=>{
+ const {env}=emailEnv(),old=globalThis.fetch;let code;globalThis.fetch=async(url,options)=>{code=JSON.parse(options.body).text.match(/\d{6}/)[0];return new Response('',{status:503})};const post=(path,body)=>authRoute(new Request('https://slowread.test/api/auth/email/'+path,{method:'POST',headers:{Origin:'https://slowread.test'},body:JSON.stringify(body)}),env);
+ try{assert.equal((await post('send',{email:'reader@163.com'})).status,503);const r=await post('verify',{email:'reader@163.com',code});assert.equal(r.status,400);assert.equal(r.headers.has('Set-Cookie'),false)}finally{globalThis.fetch=old}
+});

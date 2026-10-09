@@ -1,4 +1,4 @@
-import {validAccountId} from './identity.js';
+import {validAccountId,normalizeEmail} from './identity.js';
 import {mailConfigured,sendVerificationEmail} from './mail.js';
 const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
 export function accountStub(env,id){if(!validAccountId(id)||!env.ACCOUNTS)throw Error('账号服务尚未配置');return env.ACCOUNTS.get(env.ACCOUNTS.idFromName(id))}
@@ -10,6 +10,16 @@ export class UserAccount {
   const path=new URL(request.url).pathname;if(request.method==='GET'&&path==='/profile')return json({profile:await this.storage.get('profile')||null});
   if(request.method!=='POST')return json({error:'Method not allowed'},405);
   const input=await request.json(),now=Date.now();
+  if(path==='/email-owner'){
+   let id;await this.storage.transaction(async tx=>{id=await tx.get('email-owner');if(!id&&validAccountId(input.id)){id=input.id;await tx.put('email-owner',id)}});return json({id:id||null});
+  }
+  if(path==='/unlink-email-owner'){
+   await this.storage.transaction(async tx=>{if(await tx.get('email-owner')===input.id)await tx.delete('email-owner')});return json({ok:true});
+  }
+  if(path==='/trusted-profile'){
+   const email=normalizeEmail(input.email);if(!validAccountId(input.id)||!email)return json({error:'账号无效'},400);
+   const profile={id:input.id,provider:input.provider,email,emailVerifiedAt:now};await this.storage.put('profile',profile);return json({profile});
+  }
   if(path==='/reserve-mail'){
    const day=new Date(now).toISOString().slice(0,10),month=day.slice(0,7);let accepted=false;
    await this.storage.transaction(async tx=>{const v=await tx.get('quota')||{};if(v.day!==day){v.day=day;v.daily=0}if(v.month!==month){v.month=month;v.monthly=0}if(v.daily<90&&v.monthly<2800){v.daily++;v.monthly++;accepted=true;await tx.put('quota',v)}});
@@ -18,7 +28,7 @@ export class UserAccount {
   if(!validAccountId(input.id))return json({error:'账号无效'},400);
   if(path==='/send'){
    if(!mailConfigured(this.env))return json({error:'邮箱验证服务尚未配置'},503);
-   const email=typeof input.email==='string'?input.email.trim():'';
+   const email=normalizeEmail(input.email)||'';
    if(email.length>254||!/^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(email))return json({error:'请填写有效邮箱'},400);
    let accepted=false;await this.storage.transaction(async tx=>{const day=new Date(now).toISOString().slice(0,10),v=await tx.get('send-limit')||{};if(v.day!==day){v.day=day;v.count=0}if((v.last||0)+60000<=now&&v.count<3){v.count++;v.last=now;accepted=true;await tx.put('send-limit',v)}});
    if(!accepted)return json({error:'请间隔一分钟重发，每个账号每天最多三次'},429);

@@ -1,1 +1,3 @@
-export const validAccountId=id=>typeof id==='string'&&/^(github:[0-9]+|(?:google|apple):[A-Za-z0-9._-]{1,200})$/.test(id);
+export const validAccountId=id=>typeof id==='string'&&/^(github:[0-9]+|email:[a-f0-9]{64}|(?:google|apple):[A-Za-z0-9._-]{1,200})$/.test(id);
+export function normalizeEmail(value){const email=typeof value==='string'?value.trim().toLowerCase():'';return email.length<=254&&/^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(email)?email:null}
+export async function emailAccountId(email,env){const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(env.AUTH_SESSION_SECRET),{name:'HMAC',hash:'SHA-256'},false,['sign']);return 'email:'+Array.from(new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode('email-login:'+email))),b=>b.toString(16).padStart(2,'0')).join('')}

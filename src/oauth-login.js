@@ -1,6 +1,7 @@
 import {signCookie,verifyCookie} from './auth.js';
 import {verifyIdToken,appleClientSecret} from './oidc.js';
-import {accountProfile} from './accounts.js';
+import {accountProfile,accountStub} from './accounts.js';
+import {normalizeEmail,emailAccountId} from './identity.js';
 import {mailConfigured} from './mail.js';
 const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
 const encode=bytes=>btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
@@ -9,8 +10,14 @@ const cookie=(name,value,maxAge,sameSite='Lax')=>`${name}=${value}; Path=/; Secu
 const getCookie=(r,name)=>r.headers.get('Cookie')?.split(';').map(s=>s.trim()).find(s=>s.startsWith(name+'='))?.slice(name.length+1)||'';
 export function socialConfigured(provider,env){return !!(env.AUTH_SESSION_SECRET&&env.ACCOUNTS&&mailConfigured(env)&&(provider==='google'?env.GOOGLE_CLIENT_ID&&env.GOOGLE_CLIENT_SECRET:provider==='apple'?env.APPLE_CLIENT_ID&&env.APPLE_TEAM_ID&&env.APPLE_KEY_ID&&env.APPLE_PRIVATE_KEY:false))}
 export async function finishLogin(identity,env){
+ if(identity.provider==='github'&&identity.emailVerifiedAt&&normalizeEmail(identity.email)&&env.ACCOUNTS){
+  const previous=await accountProfile(env,identity.id);if(previous?.email&&normalizeEmail(previous.email)!==normalizeEmail(identity.email))await accountStub(env,await emailAccountId(normalizeEmail(previous.email),env)).fetch('https://account.internal/unlink-email-owner',{method:'POST',body:JSON.stringify({id:identity.id})});
+  const trusted=await accountStub(env,identity.id).fetch('https://account.internal/trusted-profile',{method:'POST',body:JSON.stringify(identity)});if(!trusted.ok)throw Error('账号服务暂时不可用');
+  await accountStub(env,await emailAccountId(normalizeEmail(identity.email),env)).fetch('https://account.internal/email-owner',{method:'POST',body:JSON.stringify({id:identity.id})});
+ }
  const profile=await accountProfile(env,identity.id);const session={id:identity.id,provider:identity.provider,name:identity.name||'慢读读者',...(profile?{email:profile.email,emailVerifiedAt:profile.emailVerifiedAt}:typeof identity.email==='string'&&identity.email.length<=254&&/^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(identity.email)?{email:identity.email}:{}),exp:Date.now()+604800000};
- const headers=new Headers({Location:profile||(identity.provider==='github'&&!mailConfigured(env))?'/':'/?verify-email=1','Cache-Control':'no-store'});headers.append('Set-Cookie',cookie('__Host-slowread-session',await signCookie(session,env),604800));return new Response(null,{status:302,headers});
+ if(identity.emailVerifiedAt&&identity.email){session.email=normalizeEmail(identity.email);session.emailVerifiedAt=identity.emailVerifiedAt}
+ const headers=new Headers({Location:session.emailVerifiedAt?'/':'/?verify-email=1','Cache-Control':'no-store'});headers.append('Set-Cookie',cookie('__Host-slowread-session',await signCookie(session,env),604800));return new Response(null,{status:302,headers});
 }
 export async function socialRoute(request,env){
  const url=new URL(request.url),match=url.pathname.match(/^\/api\/auth\/(google|apple)\/(start|callback)$/);if(!match)return null;const [,provider,action]=match,name='__Host-slowread-oauth-'+provider;
