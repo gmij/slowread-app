@@ -15,7 +15,7 @@ export function setupAccountUi({api,user,providers}){
  addRow('联系邮箱',user?.emailVerified?'已验证':user?'未验证 · 验证后升级正式用户':'登录后可验证','inlineEmail',$('emailForm'),()=>{if(user)showEmail();else $('emailStatus').textContent='请先登录后验证联系邮箱'});if(!user){$('sendEmailCode').disabled=true;$('verifyEmailCode').disabled=true}
  const readingLabel=document.createElement('p');readingLabel.className='center-label';readingLabel.textContent='阅读设置';actions.append(readingLabel);
  const preferences=$('readingSettings'),openPreferences=preferences.onclick;preferences.hidden=true;
- addRow('阅读偏好','阅读目的与目标语言','inlineReading',$('preferenceForm'),openPreferences);$('bookReadingSettings').onclick=()=>{center.showModal();openPreferences();if($('inlineReading').hidden)toggle('inlineReading')};
+ addRow('阅读偏好','直接阅读或原文对照','inlineReading',$('preferenceForm'),openPreferences);$('bookReadingSettings').onclick=()=>{center.showModal();openPreferences();if($('inlineReading').hidden)toggle('inlineReading')};
  const display=$('openReaderDisplay'),openDisplay=display.onclick;display.hidden=true;
  addRow('外观与翻页','背景、字体、字号与翻页方式','inlineAppearance',$('readerDisplayForm'),openDisplay);
  const autoSave=form=>{const submit=form.querySelector('button[type="submit"]');submit.hidden=true;form.querySelectorAll('.choice-actions').forEach(x=>x.hidden=true);form.addEventListener('change',()=>{if(!submit.disabled)form.requestSubmit(submit)})};autoSave($('preferenceForm'));autoSave($('readerDisplayForm'));

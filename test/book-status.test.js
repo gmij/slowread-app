@@ -9,13 +9,6 @@ test('whole-book progress counts only matching completed source versions and lan
  invalidateBookStatus();globalThis.fetch=async()=>Response.json({tree:[],truncated:true});await assert.rejects(()=>bookStatus(book,'zh-CN',{CONTENT_REPO:'example/library'}));
  }finally{globalThis.fetch=nativeFetch;invalidateBookStatus()}
 });
-test('language preference precedence and unsupported browser fallback',()=>{
- assert.equal(resolveLanguage({userPreference:'en',linkLanguage:'zh-CN',savedPreference:'en',browserLanguages:['zh-CN']}),'en');
- assert.equal(resolveLanguage({linkLanguage:'en',savedPreference:'zh-CN'}),'en');
- assert.equal(resolveLanguage({savedPreference:'en',browserLanguages:['zh-CN']}),'en');
- assert.equal(resolveLanguage({browserLanguages:['zh-TW']}),'zh-CN');
- assert.equal(resolveLanguage({browserLanguages:['fr-FR','ja-JP']}),'en');
- assert.equal(resolveLanguage({browserLanguages:['fr-FR']}),'en');
-});
+test('Chinese site ignores old English preferences and links',()=>{for(const input of [{userPreference:'en'},{linkLanguage:'en'},{savedPreference:'en'},{browserLanguages:['en-US']},{browserLanguages:['fr-FR']}])assert.equal(resolveLanguage(input),'zh-CN')});
 
 test('Chinese original is readable while English is counted as a translation',async()=>{const old=globalThis.fetch;invalidateBookStatus();globalThis.fetch=async()=>Response.json({tree:[]});try{const b={id:'gutenberg-23962',number:23962,sourceLanguage:'zh-CN',sections:[{id:'01',paragraphs:[{id:'p1',text:'中文'}]}]};assert.equal((await bookStatus(b,'zh-CN',{CONTENT_REPO:'example/library'})).percent,100);const en=await bookStatus(b,'en',{CONTENT_REPO:'example/library'});assert.equal(en.original,false);assert.equal(en.percent,0)}finally{globalThis.fetch=old;invalidateBookStatus()}});

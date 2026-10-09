@@ -1,3 +1,4 @@
+import {readTranslationIndex,updateTranslationIndex} from './translation-index.js';
 import {browseSource,recommendations} from './source-catalog.js';
 import {originalResponse} from './book-response.js';
 import {preferencesRoute} from './reading-preferences.js';
@@ -32,14 +33,15 @@ export default {async fetch(request,env){
   if(action){
    const book=await loadBook(action[1]);const chapter=book.sections.find(c=>c.id===action[2]);if(!chapter)return json({error:'Chapter not found'},404);
    const enabled=env.TRANSLATION_ENABLED==='true'&&!!env.AI&&!!env.GITHUB_CONTENT_TOKEN&&!!env.TRANSLATIONS;
+   if(action[3]==='quote'&&(url.searchParams.get('target')!=='zh-CN'||book.sourceLanguage==='zh-CN'))return json({error:'本站仅支持外文译为中文，中文书籍请直接阅读原文'},400);
    if(action[3]==='quote')return json({...quote(chapter.paragraphs,url.searchParams.get('target')||'zh-CN',enabled),sourceHash:await sourceHash(chapter)});
    if(request.method!=='POST')return json({error:'Method not allowed'},405);
    if(!enabled)return json({error:'真实翻译尚未启用。可以先阅读原文。'},503);
    if(request.headers.get('Origin')!==url.origin)return json({error:'请从本站确认翻译'},403);
    if(Number(request.headers.get('Content-Length')||0)>(action[3]==='save'?500000:2048))return json({error:'Request too large'},413);
    const body=await request.text();if(body.length>(action[3]==='save'?500000:2048))return json({error:'Request too large'},413);
-   const input=JSON.parse(body);if(!languages[input.target]||input.confirmed!==true)return json({error:'请先确认语言与本章费用'},400);
-   if(action[3]==='save'){const saved=await saveShared(book,chapter,input.target,input.rows,env);invalidateBookStatus();clearCatalog();return json(saved);}
+   const input=JSON.parse(body);if(input.target!=='zh-CN'||book.sourceLanguage==='zh-CN'||input.confirmed!==true)return json({error:'请先确认语言与本章费用'},400);
+   if(action[3]==='save'){const saved=await saveShared(book,chapter,input.target,input.rows,env);await updateTranslationIndex(book,chapter,saved,env);invalidateBookStatus();clearCatalog();return json(saved);}
    if(!Number.isInteger(input.index)||input.index<0||input.index>=chapter.paragraphs.length)return json({error:'段落不存在'},400);
    if(chapter.paragraphs.reduce((n,p)=>n+p.text.length,0)>50000)return json({error:'此章超出试用长度上限，可以阅读原文。'},413);
    const shared=await readShared(book,chapter,input.target,env);
@@ -48,7 +50,7 @@ export default {async fetch(request,env){
   }
   if(url.pathname==='/api/library-recommendations')return json({books:recommendations});
   if(url.pathname==='/api/library-catalog')return json(await browseSource(url.searchParams));
-  if(url.pathname==='/api/library-translations'){const target=url.searchParams.get('target')||'zh-CN';if(!['zh-CN','en'].includes(target))return json({error:'Language not supported'},400);return json(await sharedTranslationIndex(target,env));}
+  if(url.pathname==='/api/library-translations'){const index=await readTranslationIndex(env);return json({books:Object.fromEntries(index.books.map(b=>[b.id,b.chapters.map(c=>c.id)])),entries:index.books,updatedAt:index.updatedAt});}
   if(url.pathname==='/api/library-summary')return json(await catalogSummary(env));
   if(url.pathname==='/api/books')return json(await smartSearch((url.searchParams.get('q')||'').trim().slice(0,200),env));
   const statusMatch=url.pathname.match(/^\/api\/books\/(gutenberg-[1-9]\d{0,6})\/status$/);
@@ -56,7 +58,7 @@ export default {async fetch(request,env){
   const m=url.pathname.match(/^\/api\/books\/(gutenberg-[1-9]\d{0,6})(?:\/chapters\/(\d{2,4}))?$/);if(!m)return json({error:'Not found'},404);
   const book=await loadBook(m[1]);if(!m[2]){const {sections,...details}=book;return json(details);}
   const c=book.sections.find(c=>c.id===m[2]);if(!c)return json({error:'Chapter not found'},404);
-  const target=url.searchParams.get('target')||'zh-CN';if(target!=='en'&&!languages[target])return json({error:'Language not supported'},400);
+  const target=url.searchParams.get('target')||'zh-CN';if(target!=='zh-CN'&&target!==(book.sourceLanguage||'en'))return json({error:'Language not supported'},400);
   if(target===(book.sourceLanguage||'en'))return json(originalResponse(book,c));
   const shared=await readShared(book,c,target,env);if(shared)return json({...shared,sourceLanguage:book.sourceLanguage||'en'});
   if(target==='zh-CN'&&book.number===1342&&c.id==='01')return json({bookId:book.id,id:c.id,title:c.title,language:'zh-CN',paragraphs:original.paragraphs.map((p,i)=>({id:p.id,en:p.text,zh:translation.paragraphs[i].text})),source:book.source});

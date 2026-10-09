@@ -9,7 +9,7 @@ export async function learningRoute(request,env,loader=loadBook,sharedReader=rea
  if(!env.TRANSLATIONS||!env.AI||env.TRANSLATION_ENABLED!=='true')return json({error:'语境解释暂未开放'},503);
  const text=await request.text();if(text.length>1024)return json({error:'选词请求过长'},413);
  let input;try{input=JSON.parse(text)}catch{return json({error:'选词无效'},400)}
- if(!input||!/^gutenberg-[1-9]\d{0,6}$/.test(input.book)||!/^\d{2,4}$/.test(input.chapter)||!/^p[1-9]\d{0,5}$/.test(input.paragraph)||typeof input.selection!=='string'||input.selection.trim().length<1||input.selection.length>160||!['en','zh-CN'].includes(input.target))return json({error:'请选择一个词、短语或短句（最多160字）'},400);
+ if(!input||!/^gutenberg-[1-9]\d{0,6}$/.test(input.book)||!/^\d{2,4}$/.test(input.chapter)||!/^p[1-9]\d{0,5}$/.test(input.paragraph)||typeof input.selection!=='string'||input.selection.trim().length<1||input.selection.length>160||input.target!=='zh-CN')return json({error:'请选择一个词、短语或短句（最多160字）'},400);
  const book=await loader(input.book),chapter=book.sections.find(c=>c.id===input.chapter),p=chapter?.paragraphs.find(p=>p.id===input.paragraph);
  if(!p||!p.text.includes(input.selection))return json({error:'选中内容必须来自当前原文段落'},400);
  const at=p.text.indexOf(input.selection),context=p.text.length<=12000?p.text:p.text.slice(Math.max(0,at-5900),at+input.selection.length+5900);

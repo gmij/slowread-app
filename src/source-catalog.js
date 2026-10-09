@@ -5,11 +5,11 @@ const clean=text=>text.replace(/<[^>]*>/g,'').replace(/&amp;/g,'&').replace(/&qu
 export function parseCatalogPage(html,page,language){
  const books=[...html.matchAll(/<li class="booklink">([\s\S]*?)<\/li>/g)].map(m=>{const block=m[1],id=block.match(/href="\/ebooks\/(\d+)"/),title=block.match(/<span class="title">([\s\S]*?)<\/span>/),author=block.match(/<span class="subtitle">([\s\S]*?)<\/span>/);return id&&title?describe({number:Number(id[1]),title:clean(title[1]),titleEn:clean(title[1]),author:author?clean(author[1]):'作者信息见原书',sourceLanguage:language==='zh'?'zh-CN':language||'en'}):null}).filter(Boolean);
  if(!books.length&&!/No (?:results|ebooks)|No books|Displaying results/i.test(html))throw Error('书源目录暂时无法读取，请稍后重试');
- return {books,page,hasNext:/title="Go to the next page of results\."/.test(html)};
+ return {books,page,hasNext:[...html.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)].some(m=>/\bNext\b/i.test(clean(m[2]))&&Number(m[1].match(/start_index=(\d+)/)?.[1])>(page-1)*25+1)};
 }
 export async function browseSource(input){
  const page=Number(input.get('page')||1),language=input.get('language')||'',category=input.get('category')||'all',author=(input.get('author')||'').trim();
- if(!Number.isInteger(page)||page<1||page>3200||!['','en','zh','fr','de','es'].includes(language)||!Object.hasOwn(topics,category)||author.length>80)throw Error('目录筛选条件无效');
+ if(!Number.isInteger(page)||page<1||page>10000||!['','en','zh','fr','de','es'].includes(language)||!Object.hasOwn(topics,category)||author.length>80)throw Error('目录筛选条件无效');
  const query=[language?'l.'+language:'',topics[category],author?'a.'+author.replace(/[\x00-\x1f]/g,''):''].filter(Boolean).join(' '),key=JSON.stringify([page,query]);
  const saved=cache.get(key);if(saved?.expires>Date.now())return saved.value;
  const url=new URL('https://www.gutenberg.org/ebooks/search/');url.searchParams.set('query',query);url.searchParams.set('start_index',String((page-1)*25+1));
