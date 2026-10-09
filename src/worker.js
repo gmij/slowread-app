@@ -5,6 +5,7 @@ import {bookshelfRoute} from './bookshelf.js';
 import {BOOKSHELF_SCHEMA_VERSION} from './bookshelf-data.js';
 export {UserBookshelf} from './bookshelf.js';
 export {UserAccount} from './accounts.js';
+import {smartSearch} from './search-intent.js';
 import {searchBooks,loadBook} from './importer.js';
 import original from './sample/original.json';
 import translation from './sample/zh.json';
@@ -43,7 +44,7 @@ export default {async fetch(request,env){
    let result;if(shared)result={text:shared.paragraphs[input.index].zh,cached:true};else{const response=await env.TRANSLATIONS.get(env.TRANSLATIONS.idFromName('global-v1')).fetch('https://translation.internal/translate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:chapter.paragraphs[input.index].text,target:input.target,sourceLanguage:book.sourceLanguage||'en'})});if(!response.ok)return response;result=await response.json();}
    return Response.json({index:input.index,id:chapter.paragraphs[input.index].id,...result,...await receipt(book,chapter,input.target,input.index,result.text,env)},{headers:{'Cache-Control':'no-store'}});
   }
-  if(url.pathname==='/api/books')return json(await searchBooks((url.searchParams.get('q')||'').trim().slice(0,200)));
+  if(url.pathname==='/api/books')return json(await smartSearch((url.searchParams.get('q')||'').trim().slice(0,200),env));
   const statusMatch=url.pathname.match(/^\/api\/books\/(gutenberg-[1-9]\d{0,6})\/status$/);
   if(statusMatch){const target=url.searchParams.get('target')||'zh-CN';if(target!=='en'&&!languages[target])return json({error:'Language not supported'},400);return json(await bookStatus(await loadBook(statusMatch[1]),target,env));}
   const m=url.pathname.match(/^\/api\/books\/(gutenberg-[1-9]\d{0,6})(?:\/chapters\/(\d{2,4}))?$/);if(!m)return json({error:'Not found'},404);
