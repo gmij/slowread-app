@@ -5,7 +5,7 @@ import {MODEL} from './translator.js';
 // One named object coordinates all new inference across Worker isolates.
 export class TranslationCoordinator {
  constructor(state,env){this.state=state;this.env=env;this.jobs=new Map();this.cache=new Map();this.used=0;this.day='';state.blockConcurrencyWhile(async()=>{const saved=await state.storage.get('budget');if(saved){this.day=saved.day;this.used=saved.used}})}
- limit(){const n=Number(this.env.TRANSLATION_DAILY_CHARACTERS||100000);return Number.isFinite(n)&&n>=0?n:0}
+ limit(){const n=Number(this.env.TRANSLATION_DAILY_CHARACTERS||600000);return Number.isFinite(n)&&n>=0?n:0}
  async reset(){const day=new Date().toISOString().slice(0,10);if(day!==this.day){this.day=day;this.used=0;await this.state.storage.put('budget',{day,used:0})}}
  async fetch(request){
   await this.reset();
