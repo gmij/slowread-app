@@ -9,6 +9,12 @@ function state(values=new Map()){
  const state={storage,blockConcurrencyWhile:fn=>{state.ready=Promise.resolve().then(fn)}};return state;
 }
 const request=text=>new Request('https://translation.internal/translate',{method:'POST',body:JSON.stringify({text,target:'en',sourceLanguage:'zh-CN'})});
+test('learning explanations reuse cached context and share the chapter budget',async()=>{
+ const s=state();let calls=0;const object=new TranslationCoordinator(s,{TRANSLATION_DAILY_CHARACTERS:'50',AI:{run:async()=>{calls++;return {response:'此处指需要。'}}}});await s.ready;
+ const lookup=context=>new Request('https://translation.internal/explain',{method:'POST',body:JSON.stringify({selection:'want',context,target:'zh-CN',client:'a'.repeat(64)})});
+ assert.equal((await object.fetch(lookup('in want of a wife'))).status,200);const used=object.used;assert.equal((await(await object.fetch(lookup('in want of a wife'))).json()).cached,true);assert.equal(calls,1);assert.equal(object.used,used);
+ assert.equal((await object.fetch(lookup('x'.repeat(50)))).status,429);assert.equal(calls,1);
+});
 
 test('concurrent identical tasks share inference and a single budget reservation',async()=>{
  const stateA=state();let release,calls=0;

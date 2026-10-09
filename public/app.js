@@ -71,7 +71,7 @@ $('translateChapter').onclick=translate;
 $('pauseTranslation').onclick=()=>{stop();$('readingStatus').textContent='已暂停。已完成的译文保留在当前浏览器。';$('resumeTranslation').hidden=false};
 $('resumeTranslation').onclick=()=>{$('resumeTranslation').hidden=true;translate()};
 $('readOriginal').onclick=()=>{stop();$('translationProgress').hidden=true;readerVisible();activeTarget=originalLanguage();render([],true);history.replaceState(null,'',`?book=${selectedBook.id}&chapter=${selectedChapter}&lang=${activeTarget}`);restorePosition();record(savedPosition()||'p1');$('readingStatus').textContent='正在免费阅读原文。'};
-$('switchOriginal').onclick=$('readOriginal').onclick;$('switchTranslation').onclick=()=>openChapter(selectedChapter);$('targetLanguage').onchange=()=>{chooseLanguage($('targetLanguage').value);openChapter(selectedChapter)};
+$('switchOriginal').onclick=$('readOriginal').onclick;$('switchTranslation').onclick=()=>openChapter(selectedChapter);$('targetLanguage').onchange=async()=>{const target=$('targetLanguage').value;try{await readingPreferences.language(target);chooseLanguage(target);await openChapter(selectedChapter)}catch(e){$('readingStatus').textContent=e.message}};
 $('preferredLanguage').value=preferredTarget;
 $('languageLabel').textContent=preferredTarget==='en'?'English':'中文';
 $('openRequest').onclick=()=>{$('requestTitle').value=$('query').value.trim();$('requestStatus').textContent=siteUser?'':'请先登录后再提交找书请求';const button=$('requestForm').querySelector('button[type=submit]');button.hidden=false;button.disabled=!siteUser;$('requestLogin').hidden=!!siteUser;$('requestDialog').showModal()};
