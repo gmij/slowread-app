@@ -7,7 +7,9 @@ export function parseCatalogPage(html,page,language){
  if(!books.length&&!/No (?:results|ebooks)|No books|Displaying results/i.test(html))throw Error('书源目录暂时无法读取，请稍后重试');
  return {books,page,hasNext:[...html.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)].some(m=>/\bNext\b/i.test(clean(m[2]))&&Number(m[1].match(/start_index=(\d+)/)?.[1])>(page-1)*25+1)};
 }
-export {indexedBrowse as browseSource} from './metadata-catalog.js';
+import {indexedBrowse} from './metadata-catalog.js';
+import {sourceLabel} from './source-directory.js';
+export async function browseSource(input,env){const result=await indexedBrowse(input,env);return {...result,listTitle:sourceLabel(result.listTitle)}}
 export const recommendations=[
  [1342,'傲慢与偏见','Pride and Prejudice','Jane Austen','classic','在婚姻与偏见之间，读一段机智的爱情故事。'],
  [84,'弗兰肯斯坦','Frankenstein','Mary Shelley','classic','关于创造、孤独与责任的科幻经典。'],

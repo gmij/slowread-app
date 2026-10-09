@@ -6,4 +6,5 @@ export function parseDirectory(html,kind){
  return groups.filter(g=>g.items.length);
 }
 import {indexedDirectory} from './metadata-catalog.js';
-export async function sourceDirectory(input,env){return indexedDirectory(input,env,name=>labels[name]||name)}
+export const sourceLabel=name=>name==='Other'?'其他':labels[name]||name;
+export async function sourceDirectory(input,env){return indexedDirectory(input,env,sourceLabel)}

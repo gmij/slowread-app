@@ -19,7 +19,7 @@ export async function indexedBrowse(input,env={}){
  let ids;if(shelf||authorId){const kind=shelf?'shelf':'author',id=shelf||authorId;ids=(await snapshotFile(m,`browse/${kind}/${Number(id)%256}.json`,env))[id]||[]}else ids=await snapshotFile(m,`browse/${path}.json`,env);
  if(language&&(shelf||authorId)){const allowed=new Set(await snapshotFile(m,`browse/language-${language}.json`,env));ids=ids.filter(id=>allowed.has(id))}
  if(author){const result=await matchingIds(author,m,env);const allowed=new Set(result);ids=ids.filter(id=>allowed.has(id))}
- const books=await cards(ids.slice((page-1)*25,page*25),m,env);return {books,page,hasNext:page*25<ids.length,total:ids.length,indexedAt:m.syncedAt};
+ const books=await cards(ids.slice((page-1)*25,page*25),m,env);let listTitle=authorId?'作者书单':'';if(shelf){const directory=await snapshotFile(m,'directory.json',env);listTitle=directory.find(item=>item.id===shelf)?.title||'主题书单'}return {books,page,hasNext:page*25<ids.length,total:ids.length,indexedAt:m.syncedAt,listTitle};
 }
 async function matchingIds(query,m,env){const terms=searchTokens(query);if(!terms.length)return [];const lists=await Promise.all(terms.map(async term=>(await snapshotFile(m,`search/${await bucket(term)}.json`,env))[term]||[]));lists.sort((a,b)=>a.length-b.length);const sets=lists.slice(1).map(x=>new Set(x));return lists[0].filter(n=>sets.every(s=>s.has(n)))}
 export async function indexedDirectory(input,env={},translate=value=>value){
