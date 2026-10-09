@@ -26,7 +26,7 @@ export class UserBookshelf {
    if(request.method==='GET'){const entries=await this.storage.list({prefix:'preference:book:'});return json({defaults:await this.storage.get('preference:default')||null,books:Object.fromEntries([...entries].map(([k,v])=>[k.slice(16),v]))})}
    if(request.method!=='POST')return new Response(null,{status:405});
    const p=await request.json();if(!validPreference(p)||p.book!==undefined&&!/^gutenberg-[1-9]\d{0,6}$/.test(p.book))return new Response(null,{status:400});
-   await this.storage.put(p.book?'preference:book:'+p.book:'preference:default',{purpose:p.purpose,language:p.language});return json({saved:true});
+   await this.storage.put(p.book?'preference:book:'+p.book:'preference:default',{purpose:p.purpose,language:p.language,...(p.display?{display:p.display}:{})});return json({saved:true});
   }
   if(request.method==='GET'){const entries=await this.storage.list({prefix:'book:'});return json({books:[...entries.values()].sort((a,b)=>b.updatedAt-a.updatedAt)})}
   if(request.method!=='POST')return new Response(null,{status:405});
