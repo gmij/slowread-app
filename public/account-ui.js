@@ -1,6 +1,12 @@
 export function setupAccountUi({api,user,providers}){
  const $=id=>document.getElementById(id);
  for(const provider of ['github','google','apple']){$('login-'+provider).disabled=!providers[provider];$('login-'+provider).onclick=()=>location.assign('/api/auth/'+provider+'/start')}
+ const options=$('loginDialog').querySelector('.login-options');for(const provider of ['github','google','apple'])if(providers[provider])options.prepend($('login-'+provider));
+ $('emailLoginForm').hidden=!providers.emailVerification;
+ $('loginDialog').querySelector('h2').textContent='欢迎来到慢读';
+ $('loginDialog').querySelector('h2 + p').textContent='登录后同步书架和阅读进度。';
+ $('loginDialog').querySelector('.note').textContent='灰色的登录方式暂未开放。不同登录方式的书架不会自动合并。';
+ $('closeLogin').textContent='×';$('closeLogin').setAttribute('aria-label','关闭登录窗口');
  $('closeLogin').onclick=()=>$('loginDialog').close();$('closeEmail').onclick=()=>$('emailDialog').close();
  let sentLoginEmail='';
  const showLogin=()=>$('loginDialog').showModal();
