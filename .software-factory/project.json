@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "repository": "https://github.com/gmij/slowread-app",
+  "provider": "github",
+  "stages": [
+    "requirements",
+    "architecture",
+    "design",
+    "prototype",
+    "development",
+    "validation"
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "active": "development",
+  "common": {},
+  "environments": [
+    {
+      "id": "development",
+      "name": "开发环境",
+      "variables": {
+        "cloudflare_readonly_apikey": {
+          "secret": true,
+          "encoding": "base64",
+          "value": "Y2Z1dF96bk90REhvS1ZqeVZmckw1YWtwdlpwQ2JSbzg4V3NTYXp6WDlydzQ3OTcyODQ2MTc="
+        }
+      }
+    },
+    {
+      "id": "test",
+      "name": "测试环境",
+      "variables": {}
+    },
+    {
+      "id": "production",
+      "name": "正式环境",
+      "variables": {}
+    }
+  ]
+}
